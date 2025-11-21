@@ -1,0 +1,14 @@
+{
+  "name": "noke-api",
+  "version": "1.0.0",
+  "description": "NoKe Backend",
+  "scripts": {
+    "start": "func start",
+    "test": "echo \"No test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@azure/cosmos": "^3.17.3",
+    "bcryptjs": "^2.4.3"
+  },
+  "main": "src/functions/*.js"
+}
