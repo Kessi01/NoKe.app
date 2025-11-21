@@ -1,81 +1,147 @@
+// ---------------------------------------------------------
+// FIX: Globales Crypto-Objekt für Node.js Umgebungen (Azure Functions)
+// Dies muss VOR allen anderen Importen stehen, um den Fehler
+// "crypto is not defined" in der Cosmos DB Library zu beheben.
+// ---------------------------------------------------------
+const crypto = require('crypto');
+if (!global.crypto) {
+    Object.defineProperty(global, 'crypto', {
+        value: {
+            getRandomValues: (arr) => crypto.randomBytes(arr.length),
+            subtle: crypto.webcrypto ? crypto.webcrypto.subtle : undefined // Fallback für ältere Node Versionen
+        }
+    });
+}
+
+// ---------------------------------------------------------
+// Importe
+// ---------------------------------------------------------
 const { container } = require('../db');
 const bcrypt = require('bcryptjs');
 
 module.exports = async function (context, req) {
-    // Wir extrahieren die Daten aus dem Request Body
-    const { action, username, password } = req.body;
-
-    // Sicherheitscheck: Ist die DB-Verbindung da?
+    // 1. Sicherheitscheck: Datenbankverbindung prüfen
     if (!container) {
-        context.res = { 
-            status: 500, 
-            body: { 
-                success: false, 
-                message: "Datenbank-Verbindung fehlt (Container ist null)" 
-            } 
+        context.log.error("CRITICAL: Datenbank-Container ist null. Prüfe db.js und Connection String.");
+        context.res = {
+            status: 500,
+            body: {
+                success: false,
+                message: "Server-Konfigurationsfehler: Keine Datenbankverbindung."
+            }
+        };
+        return;
+    }
+
+    // 2. Daten aus dem Request holen
+    const { action, username, password } = req.body || {};
+
+    // Validierung: Sind alle nötigen Daten da?
+    if (!action || !username || !password) {
+        context.res = {
+            status: 400,
+            body: {
+                success: false,
+                message: "Fehlende Daten: action, username und password sind erforderlich."
+            }
         };
         return;
     }
 
     try {
-        // Query vorbereiten: Suche User mit diesem Namen
+        // 3. Existiert der Benutzer bereits?
+        // Wir suchen nach einem User-Dokument mit diesem Benutzernamen
         const querySpec = {
             query: "SELECT * FROM c WHERE c.username = @u AND c.type = 'user'",
             parameters: [{ name: "@u", value: username }]
         };
-        
-        // Datenbank abfragen
+
         const { resources } = await container.items.query(querySpec).fetchAll();
+        const existingUser = resources.length > 0 ? resources[0] : null;
 
-        // Logik für REGISTRIERUNG
+        // ---------------------------------------------------------
+        // A) REGISTRIERUNG
+        // ---------------------------------------------------------
         if (action === 'register') {
-            if (resources.length > 0) {
-                context.res = { body: { success: false, message: "Benutzername vergeben" } };
+            if (existingUser) {
+                context.res = {
+                    status: 409, // Conflict
+                    body: { success: false, message: "Benutzername ist bereits vergeben." }
+                };
                 return;
             }
-            // Passwort hashen
-            const hashedPassword = await bcrypt.hash(password, 10);
-            
-            // User in DB speichern
-            await container.items.create({ 
-                id: username + "_profile", 
-                username, 
-                password: hashedPassword, 
-                type: "user" 
-            });
-            
-            context.res = { body: { success: true } };
 
-        // Logik für LOGIN
+            // Passwort sicher hashen (Salt-Runden: 10)
+            const hashedPassword = await bcrypt.hash(password, 10);
+
+            // Neuen User in der DB anlegen
+            // ID muss unique sein, daher hängen wir _profile an oder nutzen eine UUID
+            await container.items.create({
+                id: username + "_profile", // Eindeutige ID für Cosmos DB
+                username: username,
+                password: hashedPassword,
+                type: "user",
+                createdAt: new Date().toISOString()
+            });
+
+            context.res = {
+                status: 201, // Created
+                body: { success: true, message: "Benutzer erfolgreich erstellt." }
+            };
+
+        // ---------------------------------------------------------
+        // B) LOGIN
+        // ---------------------------------------------------------
         } else if (action === 'login') {
-            if (resources.length === 0) {
-                context.res = { body: { success: false, message: "Benutzer nicht gefunden" } };
+            if (!existingUser) {
+                // Generische Fehlermeldung aus Sicherheitsgründen (User Enumeration verhindern)
+                context.res = {
+                    status: 401, // Unauthorized
+                    body: { success: false, message: "Benutzername oder Passwort falsch." }
+                };
                 return;
             }
-            
-            // Passwort prüfen
-            const valid = await bcrypt.compare(password, resources[0].password);
-            if (!valid) {
-                context.res = { body: { success: false, message: "Falsches Passwort" } };
+
+            // Passwort überprüfen
+            const isPasswordValid = await bcrypt.compare(password, existingUser.password);
+
+            if (!isPasswordValid) {
+                context.res = {
+                    status: 401,
+                    body: { success: false, message: "Benutzername oder Passwort falsch." }
+                };
                 return;
             }
-            
-            context.res = { body: { success: true, username } };
+
+            // Login erfolgreich
+            context.res = {
+                status: 200,
+                body: {
+                    success: true,
+                    message: "Login erfolgreich.",
+                    username: existingUser.username
+                }
+            };
+
+        } else {
+            // Unbekannte Action
+            context.res = {
+                status: 400,
+                body: { success: false, message: `Unbekannte Aktion: ${action}` }
+            };
         }
 
     } catch (error) {
-        // HIER WURDE GEÄNDERT:
-        // Wir loggen den Fehler detailliert in die Azure Konsole
-        context.log("Auth Error Details:", error);
+        // 4. Globales Error Handling
+        context.log.error("Auth API Error:", error);
         
-        // Wir senden den echten Fehlertext zurück an das Frontend
-        context.res = { 
-            status: 500, 
-            body: { 
-                success: false, 
-                message: error.message || "Unbekannter Server-Fehler", // Hier steht jetzt der echte Grund
-                details: JSON.stringify(error) // Technische Details für Debugging
-            } 
+        context.res = {
+            status: 500,
+            body: {
+                success: false,
+                message: "Ein interner Serverfehler ist aufgetreten.",
+                debug: error.message // Nur für Entwicklung, später entfernen!
+            }
         };
     }
 };
