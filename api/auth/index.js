@@ -44,6 +44,6 @@ module.exports = async function (context, req) {
         }
     } catch (error) {
         context.log(error);
-        context.res = { status: 500, body: { success: false, message: "Serverfehler" } };
+        context.res = { status: 500, body: { success: false, message: "Hosi" } };
     }
 };
