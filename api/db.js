@@ -9,7 +9,7 @@ if (connectionString) {
     const client = new CosmosClient(connectionString);
     // Datenbank und Container Namen müssen exakt so in Azure erstellt werden
     const database = client.database("NokeDB");
-    container = database.container("Items");
+    container = database.container("NokeDB");
 }
  
 module.exports = { container };
