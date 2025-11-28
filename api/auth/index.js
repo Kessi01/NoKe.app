@@ -118,7 +118,7 @@ module.exports = async function (context, req) {
         context.log.error("Auth API Error:", error);
         
         context.res = {
-            status: 500,
+            status: 200,
             body: {
                 success: false,
                 message: "Ein interner Serverfehler ist aufgetreten.",
