@@ -402,7 +402,9 @@
                 return null;
             }
 
-            showLoading(true);
+            // Loading Overlay anzeigen
+            loadingOverlay.classList.remove('hidden');
+            loadingOverlay.classList.add('flex');
             
             // DEBUG: Log Request Details
             const requestUrl = `${AZURE_FUNCTION_BASE_URL}/${endpoint}`;
@@ -459,7 +461,9 @@
                 showToast(error.message || "Verbindungsfehler zu Azure", "error");
                 return null;
             } finally {
-                showLoading(false);
+                // Loading Overlay verstecken
+                loadingOverlay.classList.add('hidden');
+                loadingOverlay.classList.remove('flex');
             }
         }
 
