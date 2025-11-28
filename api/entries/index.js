@@ -16,11 +16,17 @@ module.exports = async function (context, req) {
     if (method === 'post') {
         const entry = req.body;
         if (!entry.id) entry.id = Math.random().toString(36).substring(2, 15);
-        
+
         entry.type = 'entry';
         // FIX 2: Konsistente Benennung sicherstellen.
         // Wenn dein Frontend "user" sendet, mapping auf "username" für die DB
-        entry.username = entry.user || entry.username; 
+        entry.username = entry.user || entry.username;
+
+        // ENCRYPTION
+        if (entry.password) {
+            const { encrypt } = require('../shared/crypto');
+            entry.password = encrypt(entry.password);
+        }
 
         try {
             await container.items.upsert(entry);
@@ -37,7 +43,7 @@ module.exports = async function (context, req) {
             // Partition Key (username) ist zwingend erforderlich bei Cosmos DB Delete
             await container.item(id, username).delete();
             context.res = { body: { success: true } };
-        } catch(e) {
+        } catch (e) {
             context.log.error(e);
             // Fehler abfangen statt Server Crash
             context.res = { status: e.code || 500, body: { success: false, message: e.message } };
