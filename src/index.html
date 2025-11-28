@@ -403,16 +403,34 @@
             }
 
             showLoading(true);
+            
+            // DEBUG: Log Request Details
+            const requestUrl = `${AZURE_FUNCTION_BASE_URL}/${endpoint}`;
+            console.log("🌐 API Request gestartet:");
+            console.log("  📍 URL:", requestUrl);
+            console.log("  📤 Method:", method);
+            console.log("  📦 Body:", body);
+            
             try {
                 const headers = { 'Content-Type': 'application/json' };
                 const config = { method, headers };
 
-                if (body) config.body = JSON.stringify(body);
+                if (body) {
+                    config.body = JSON.stringify(body);
+                    console.log("  📝 JSON Body:", config.body);
+                }
 
-                const response = await fetch(`${AZURE_FUNCTION_BASE_URL}/${endpoint}`, config);
+                console.log("  ⏳ Sende Request...");
+                const response = await fetch(requestUrl, config);
+                console.log("  📡 Response Status:", response.status, response.statusText);
 
                 // Versuchen, die Antwort als JSON zu lesen (auch bei Fehlern)
-                const data = await response.json().catch(() => ({}));
+                console.log("  📥 Lese Response Body...");
+                const data = await response.json().catch((e) => {
+                    console.error("  ❌ JSON Parse Fehler:", e);
+                    return {};
+                });
+                console.log("  📋 Response Data:", data);
 
                 if (!response.ok) {
                     // HIER IST DIE ÄNDERUNG:
@@ -420,17 +438,23 @@
                     let errorMessage = data.message || `HTTP Fehler: ${response.status}`;
 
                     if (data.errorDetails) {
-                        console.warn("Backend Debug Info:", data.errorDetails); // Für Entwickler in Konsole
+                        console.warn("  ⚠️ Backend Debug Info:", data.errorDetails); // Für Entwickler in Konsole
                         errorMessage += ` (Details: ${data.errorDetails})`; // Hängt den echten Fehler an den Toast an
                     }
 
+                    console.error("  ❌ Request fehlgeschlagen:", errorMessage);
                     throw new Error(errorMessage);
                 }
 
+                console.log("  ✅ Request erfolgreich!");
                 return data;
 
             } catch (error) {
-                console.error("API Error:", error);
+                console.error("❌ API Error:", error);
+                console.error("  📍 Endpoint:", endpoint);
+                console.error("  📤 Method:", method);
+                console.error("  💬 Error Message:", error.message);
+                console.error("  📚 Stack:", error.stack);
                 // Der Toast zeigt jetzt den echten Grund an (z.B. "DB Verbindung fehlt")
                 showToast(error.message || "Verbindungsfehler zu Azure", "error");
                 return null;
@@ -459,6 +483,10 @@
             const user = document.getElementById('login-user').value;
             const pass = document.getElementById('login-pass').value;
 
+            console.log("🔑 LOGIN gestartet:");
+            console.log("  👤 Username:", user);
+            console.log("  🔐 Password Länge:", pass.length);
+
             // Sende Credentials an Azure Function "/auth" mit action "login"
             const result = await apiRequest('auth', 'POST', {
                 action: 'login',
@@ -466,14 +494,18 @@
                 password: pass
             });
 
+            console.log("📋 Login Ergebnis:", result);
+
             if (result && result.success) {
+                console.log("✅ Login erfolgreich!");
                 currentUser = user;
                 authScreen.classList.add('hidden');
                 appInterface.classList.remove('hidden');
                 document.getElementById('current-username-display').textContent = currentUser;
                 loadApp();
             } else {
-                showToast('Anmeldung fehlgeschlagen', 'error');
+                console.error("❌ Login fehlgeschlagen:", result ? result.message : "Keine Antwort");
+                showToast(result?.message || 'Anmeldung fehlgeschlagen', 'error');
             }
         });
 
@@ -483,15 +515,25 @@
             const user = document.getElementById('reg-user').value;
             const pass = document.getElementById('reg-pass').value;
 
+            console.log("📝 REGISTRIERUNG gestartet:");
+            console.log("  👤 Username:", user);
+            console.log("  🔐 Password Länge:", pass.length);
+
             const result = await apiRequest('auth', 'POST', {
                 action: 'register',
                 username: user,
                 password: pass
             });
 
+            console.log("📋 Registrierung Ergebnis:", result);
+
             if (result && result.success) {
+                console.log("✅ Registrierung erfolgreich!");
                 showToast('Konto erstellt! Bitte anmelden.');
                 toggleAuth('login');
+            } else {
+                console.error("❌ Registrierung fehlgeschlagen:", result ? result.message : "Keine Antwort");
+                showToast(result?.message || 'Registrierung fehlgeschlagen', 'error');
             }
         });
 
