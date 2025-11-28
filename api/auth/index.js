@@ -62,86 +62,85 @@ module.exports = async function (context, req) {
             };
 
             await container.items.create(newUserDoc);
-            context.res = {
-                body: { success: true, message: "User angelegt" };
+            context.res = { body: { success: true, message: "User angelegt" } };
 
-                // LOGIN
-            } else if (action === 'login') {
-                if (!password) throw new Error("Passwort fehlt");
+            // LOGIN
+        } else if (action === 'login') {
+            if (!password) throw new Error("Passwort fehlt");
 
-                if (!userDoc) {
-                    context.res = { body: { success: false, message: "Benutzer nicht gefunden" } };
-                    return;
-                }
-
-                // Passwort wird mit dem gehashten Passwort aus der DB verglichen
-                const valid = await bcrypt.compare(password, userDoc.password);
-
-                if (!valid) {
-                    context.res = { body: { success: false, message: "Falsches Passwort" } };
-                    return;
-                }
-
-                // MFA CHECK
-                if (userDoc.encryptedPhone) {
-                    // Generate 6-digit OTP
-                    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-                    // Store OTP in user doc (simple approach)
-                    userDoc.mfaCode = otp;
-                    userDoc.mfaExpiry = Date.now() + 300000; // 5 minutes
-
-                    await container.items.upsert(userDoc);
-
-                    // MOCK SEND SMS
-                    const decryptedPhone = decrypt(userDoc.encryptedPhone);
-                    context.log.warn(`[MOCK SMS] Sending OTP ${otp} to ${decryptedPhone}`);
-
-                    context.res = {
-                        body: {
-                            success: false,
-                            mfaRequired: true,
-                            message: "Bitte OTP eingeben (siehe Konsole)"
-                        }
-                    };
-                    return;
-                }
-
-                context.res = { body: { success: true, username } };
-
-                // VERIFY MFA
-            } else if (action === 'verify-mfa') {
-                if (!code) throw new Error("Code fehlt");
-
-                if (!userDoc) {
-                    context.res = { body: { success: false, message: "Benutzer nicht gefunden" } };
-                    return;
-                }
-
-                if (userDoc.mfaCode === code && userDoc.mfaExpiry > Date.now()) {
-                    // Clear OTP
-                    userDoc.mfaCode = null;
-                    userDoc.mfaExpiry = null;
-                    await container.items.upsert(userDoc);
-
-                    context.res = { body: { success: true, username } };
-                } else {
-                    context.res = { body: { success: false, message: "Code ungültig oder abgelaufen" } };
-                }
-
-            } else {
-                context.res = { status: 400, body: { success: false, message: "Ungültige Action" } };
+            if (!userDoc) {
+                context.res = { body: { success: false, message: "Benutzer nicht gefunden" } };
+                return;
             }
 
-        } catch (error) {
-            context.log.error("ERROR:", error.message);
-            context.res = {
-                status: 500,
-                body: {
-                    success: false,
-                    message: "Interner Serverfehler",
-                    errorDetails: error.message
-                }
-            };
+            // Passwort wird mit dem gehashten Passwort aus der DB verglichen
+            const valid = await bcrypt.compare(password, userDoc.password);
+
+            if (!valid) {
+                context.res = { body: { success: false, message: "Falsches Passwort" } };
+                return;
+            }
+
+            // MFA CHECK
+            if (userDoc.encryptedPhone) {
+                // Generate 6-digit OTP
+                const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+                // Store OTP in user doc (simple approach)
+                userDoc.mfaCode = otp;
+                userDoc.mfaExpiry = Date.now() + 300000; // 5 minutes
+
+                await container.items.upsert(userDoc);
+
+                // MOCK SEND SMS
+                const decryptedPhone = decrypt(userDoc.encryptedPhone);
+                context.log.warn(`[MOCK SMS] Sending OTP ${otp} to ${decryptedPhone}`);
+
+                context.res = {
+                    body: {
+                        success: false,
+                        mfaRequired: true,
+                        message: "Bitte OTP eingeben (siehe Konsole)"
+                    }
+                };
+                return;
+            }
+
+            context.res = { body: { success: true, username } };
+
+            // VERIFY MFA
+        } else if (action === 'verify-mfa') {
+            if (!code) throw new Error("Code fehlt");
+
+            if (!userDoc) {
+                context.res = { body: { success: false, message: "Benutzer nicht gefunden" } };
+                return;
+            }
+
+            if (userDoc.mfaCode === code && userDoc.mfaExpiry > Date.now()) {
+                // Clear OTP
+                userDoc.mfaCode = null;
+                userDoc.mfaExpiry = null;
+                await container.items.upsert(userDoc);
+
+                context.res = { body: { success: true, username } };
+            } else {
+                context.res = { body: { success: false, message: "Code ungültig oder abgelaufen" } };
+            }
+
+        } else {
+            context.res = { status: 400, body: { success: false, message: "Ungültige Action" } };
         }
-    };
+
+    } catch (error) {
+        context.log.error("ERROR:", error.message);
+        context.res = {
+            status: 500,
+            body: {
+                success: false,
+                message: "Interner Serverfehler",
+                errorDetails: error.message
+            }
+        };
+    }
+};

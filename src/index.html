@@ -135,7 +135,7 @@
                 </p>
             </form>
 
-            <!-- Register Form (Hidden by default) -->
+            <!-- Register Form -->
             <form id="register-form" class="space-y-6 hidden">
                 <div>
                     <label class="block text-xs text-gold uppercase tracking-widest mb-1">Neuer Benutzername</label>
@@ -147,6 +147,17 @@
                     <input type="password" id="reg-pass" class="input-field w-full p-3 rounded"
                         placeholder="Sicheres Passwort wählen" required>
                 </div>
+                <div>
+                    <label class="block text-xs text-gold uppercase tracking-widest mb-1">Passwort bestätigen</label>
+                    <input type="password" id="reg-pass-confirm" class="input-field w-full p-3 rounded"
+                        placeholder="Passwort wiederholen" required>
+                </div>
+                <div>
+                    <label class="block text-xs text-gold uppercase tracking-widest mb-1">Telefonnummer (für
+                        MFA)</label>
+                    <input type="tel" id="reg-phone" class="input-field w-full p-3 rounded"
+                        placeholder="+41 79 123 45 67" required>
+                </div>
                 <button type="submit" class="btn-gold w-full py-3 rounded mt-4">Konto erstellen</button>
                 <p class="text-center text-sm text-gray-400 mt-4">
                     Bereits registriert? <a href="#" onclick="toggleAuth('login')"
@@ -156,7 +167,24 @@
         </div>
     </div>
 
-    <!-- ================= MAIN APP INTERFACE ================= -->
+    <!-- MFA MODAL -->
+    <div id="mfa-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black bg-opacity-90">
+        <div class="bg-darkgray p-8 rounded-xl shadow-2xl border border-gray-800 w-full max-w-sm">
+            <h2 class="text-2xl font-bold text-gold mb-4 text-center">MFA Verifizierung</h2>
+            <p class="text-gray-400 text-sm mb-6 text-center">Bitte geben Sie den Code ein, der an Ihre Nummer gesendet
+                wurde.</p>
+            <form id="mfa-form" class="space-y-4">
+                <input type="text" id="mfa-code"
+                    class="input-field w-full p-3 rounded text-center text-2xl tracking-widest" placeholder="123456"
+                    required maxlength="6">
+                <button type="submit" class="btn-gold w-full py-3 rounded">Verifizieren</button>
+                <button type="button" onclick="cancelMfa()"
+                    class="text-gray-500 text-sm w-full mt-2 hover:text-white">Abbrechen</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MAIN APP INTERFACE -->
     <div id="app-interface" class="flex h-full hidden">
 
         <!-- SIDEBAR -->
@@ -226,7 +254,7 @@
         </div>
     </div>
 
-    <!-- ================= MODAL: DELETE CONFIRMATION ================= -->
+    <!-- MODAL: DELETE CONFIRMATION -->
     <div id="delete-modal"
         class="fixed inset-0 z-50 hidden bg-black bg-opacity-90 flex items-center justify-center px-4">
         <div class="bg-darkgray border border-red-800 rounded-xl p-6 w-full max-w-sm relative shadow-2xl">
@@ -240,18 +268,14 @@
             </div>
             <div class="flex space-x-3">
                 <button onclick="closeModal('delete-modal')"
-                    class="flex-1 py-3 rounded bg-gray-800 text-white hover:bg-gray-700 transition-colors">
-                    Abbrechen
-                </button>
+                    class="flex-1 py-3 rounded bg-gray-800 text-white hover:bg-gray-700 transition-colors">Abbrechen</button>
                 <button onclick="confirmDelete()"
-                    class="flex-1 py-3 rounded bg-red-700 text-white hover:bg-red-600 transition-colors font-bold">
-                    Löschen
-                </button>
+                    class="flex-1 py-3 rounded bg-red-700 text-white hover:bg-red-600 transition-colors font-bold">Löschen</button>
             </div>
         </div>
     </div>
 
-    <!-- ================= MODAL: CREATE/EDIT PASSWORD ================= -->
+    <!-- MODAL: CREATE/EDIT PASSWORD -->
     <div id="password-modal"
         class="fixed inset-0 z-50 hidden bg-black bg-opacity-90 overflow-y-auto h-full w-full flex items-center justify-center px-4">
         <div class="bg-darkgray border border-gold rounded-xl shadow-2xl w-full max-w-lg relative">
@@ -347,7 +371,7 @@
         </div>
     </div>
 
-    <!-- ================= MODAL: CREATE FOLDER ================= -->
+    <!-- MODAL: CREATE FOLDER -->
     <div id="folder-modal"
         class="fixed inset-0 z-50 hidden bg-black bg-opacity-90 flex items-center justify-center px-4">
         <div class="bg-darkgray border border-gold rounded-xl p-6 w-full max-w-sm relative">
@@ -363,23 +387,17 @@
         </div>
     </div>
 
-    <!-- ================= JAVASCRIPT LOGIC ================= -->
+    <!-- JAVASCRIPT LOGIC -->
     <script>
-        // ==========================================
         // AZURE CONFIGURATION
-        // ==========================================
-
-        // HIER URL DEINER AZURE FUNCTION APP EINFÜGEN
-        // Beispiel: "https://mein-passwortmanager.azurewebsites.net/api"
-        // Wichtig: CORS muss in Azure aktiviert sein für deine Domain!
         const AZURE_FUNCTION_BASE_URL = "/api";
 
         // State
         let currentUser = null;
         let currentFolder = 'Alle';
-        let deleteTarget = null; // { type: 'folder'|'entry', id: ... }
-        let foldersData = []; // Lokaler Cache der Ordner
-        let entriesData = []; // Lokaler Cache der Einträge
+        let deleteTarget = null;
+        let foldersData = [];
+        let entriesData = [];
 
         // DOM Elements
         const authScreen = document.getElementById('auth-screen');
@@ -387,85 +405,44 @@
         const passwordGrid = document.getElementById('password-grid');
         const folderList = document.getElementById('folder-list');
         const loadingOverlay = document.getElementById('loading-overlay');
+        const mfaModal = document.getElementById('mfa-modal');
 
-        // ==========================================
-        // API HELPER FUNCTION (Verbessert)
-        // ==========================================
+        // API HELPER
         async function apiRequest(endpoint, method = 'GET', body = null) {
             if (!AZURE_FUNCTION_BASE_URL) {
                 showToast("Bitte Azure URL im Code konfigurieren!", "error");
                 return null;
             }
 
-            // Loading Overlay anzeigen
             loadingOverlay.classList.remove('hidden');
             loadingOverlay.classList.add('flex');
-
-            // DEBUG: Log Request Details
-            const requestUrl = `${AZURE_FUNCTION_BASE_URL}/${endpoint}`;
-            console.log("🌐 API Request gestartet:");
-            console.log("  📍 URL:", requestUrl);
-            console.log("  📤 Method:", method);
-            console.log("  📦 Body:", body);
 
             try {
                 const headers = { 'Content-Type': 'application/json' };
                 const config = { method, headers };
+                if (body) config.body = JSON.stringify(body);
 
-                if (body) {
-                    config.body = JSON.stringify(body);
-                    console.log("  📝 JSON Body:", config.body);
-                }
-
-                console.log("  ⏳ Sende Request...");
-                const response = await fetch(requestUrl, config);
-                console.log("  📡 Response Status:", response.status, response.statusText);
-
-                // Versuchen, die Antwort als JSON zu lesen (auch bei Fehlern)
-                console.log("  📥 Lese Response Body...");
-                const data = await response.json().catch((e) => {
-                    console.error("  ❌ JSON Parse Fehler:", e);
-                    return {};
-                });
-                console.log("  📋 Response Data:", data);
+                const response = await fetch(`${AZURE_FUNCTION_BASE_URL}/${endpoint}`, config);
+                const data = await response.json().catch(() => ({}));
 
                 if (!response.ok) {
-                    // HIER IST DIE ÄNDERUNG:
-                    // Wir prüfen, ob der Server uns "errorDetails" geschickt hat (vom vorherigen Backend-Code)
                     let errorMessage = data.message || `HTTP Fehler: ${response.status}`;
-
-                    if (data.errorDetails) {
-                        console.warn("  ⚠️ Backend Debug Info:", data.errorDetails); // Für Entwickler in Konsole
-                        errorMessage += ` (Details: ${data.errorDetails})`; // Hängt den echten Fehler an den Toast an
-                    }
-
-                    console.error("  ❌ Request fehlgeschlagen:", errorMessage);
+                    if (data.errorDetails) errorMessage += ` (Details: ${data.errorDetails})`;
                     throw new Error(errorMessage);
                 }
-
-                console.log("  ✅ Request erfolgreich!");
                 return data;
 
             } catch (error) {
-                console.error("❌ API Error:", error);
-                console.error("  📍 Endpoint:", endpoint);
-                console.error("  📤 Method:", method);
-                console.error("  💬 Error Message:", error.message);
-                console.error("  📚 Stack:", error.stack);
-                // Der Toast zeigt jetzt den echten Grund an (z.B. "DB Verbindung fehlt")
+                console.error("API Error:", error);
                 showToast(error.message || "Verbindungsfehler zu Azure", "error");
                 return null;
             } finally {
-                // Loading Overlay verstecken
                 loadingOverlay.classList.add('hidden');
                 loadingOverlay.classList.remove('flex');
             }
         }
 
-        // ==========================================
-        // AUTH SYSTEM (AZURE CONNECTED)
-        // ==========================================
-
+        // AUTH SYSTEM
         function toggleAuth(mode) {
             if (mode === 'register') {
                 document.getElementById('login-form').classList.add('hidden');
@@ -476,65 +453,82 @@
             }
         }
 
-        // Login Handler
         document.getElementById('login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const user = document.getElementById('login-user').value;
             const pass = document.getElementById('login-pass').value;
 
-            console.log("🔑 LOGIN gestartet:");
-            console.log("  👤 Username:", user);
-            console.log("  🔐 Password Länge:", pass.length);
-
-            // Sende Credentials an Azure Function "/auth" mit action "login"
-            const result = await apiRequest('auth', 'POST', {
-                action: 'login',
-                username: user,
-                password: pass
-            });
-
-            console.log("📋 Login Ergebnis:", result);
+            const result = await apiRequest('auth', 'POST', { action: 'login', username: user, password: pass });
 
             if (result && result.success) {
-                console.log("✅ Login erfolgreich!");
                 currentUser = user;
                 authScreen.classList.add('hidden');
                 appInterface.classList.remove('hidden');
                 document.getElementById('current-username-display').textContent = currentUser;
                 loadApp();
+            } else if (result && result.mfaRequired) {
+                currentUser = user;
+                authScreen.classList.add('hidden');
+                mfaModal.classList.remove('hidden');
+                showToast(result.message || 'MFA Code gesendet');
             } else {
-                console.error("❌ Login fehlgeschlagen:", result ? result.message : "Keine Antwort");
                 showToast(result?.message || 'Anmeldung fehlgeschlagen', 'error');
             }
         });
 
-        // Register Handler
         document.getElementById('register-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const user = document.getElementById('reg-user').value;
             const pass = document.getElementById('reg-pass').value;
+            const passConfirm = document.getElementById('reg-pass-confirm').value;
+            const phone = document.getElementById('reg-phone').value;
 
-            console.log("📝 REGISTRIERUNG gestartet:");
-            console.log("  👤 Username:", user);
-            console.log("  🔐 Password Länge:", pass.length);
+            if (pass !== passConfirm) {
+                showToast('Passwörter stimmen nicht überein!', 'error');
+                return;
+            }
 
             const result = await apiRequest('auth', 'POST', {
                 action: 'register',
                 username: user,
-                password: pass
+                password: pass,
+                phoneNumber: phone
             });
 
-            console.log("📋 Registrierung Ergebnis:", result);
-
             if (result && result.success) {
-                console.log("✅ Registrierung erfolgreich!");
                 showToast('Konto erstellt! Bitte anmelden.');
                 toggleAuth('login');
+                document.getElementById('register-form').reset();
             } else {
-                console.error("❌ Registrierung fehlgeschlagen:", result ? result.message : "Keine Antwort");
                 showToast(result?.message || 'Registrierung fehlgeschlagen', 'error');
             }
         });
+
+        document.getElementById('mfa-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const code = document.getElementById('mfa-code').value;
+
+            const result = await apiRequest('auth', 'POST', {
+                action: 'verify-mfa',
+                username: currentUser,
+                code: code
+            });
+
+            if (result && result.success) {
+                mfaModal.classList.add('hidden');
+                appInterface.classList.remove('hidden');
+                document.getElementById('current-username-display').textContent = currentUser;
+                loadApp();
+            } else {
+                showToast(result?.message || 'Code ungültig', 'error');
+            }
+        });
+
+        function cancelMfa() {
+            mfaModal.classList.add('hidden');
+            authScreen.classList.remove('hidden');
+            currentUser = null;
+        }
 
         function logout() {
             currentUser = null;
@@ -546,15 +540,9 @@
             document.getElementById('login-form').reset();
         }
 
-        // ==========================================
-        // APP LOGIC (DATA FETCHING)
-        // ==========================================
-
+        // APP LOGIC
         async function loadApp() {
-            // Hole alle Daten für den User auf einmal
-            // Erwartet Antwort: { folders: [...], entries: [...] }
             const data = await apiRequest(`data?username=${encodeURIComponent(currentUser)}`, 'GET');
-
             if (data) {
                 foldersData = data.folders || [];
                 entriesData = data.entries || [];
@@ -563,21 +551,15 @@
             }
         }
 
-        // ==========================================
         // FOLDERS
-        // ==========================================
-
         function renderFolders() {
             let html = `
                 <div class="sidebar-link rounded px-4 py-2 cursor-pointer flex items-center justify-between ${currentFolder === 'Alle' ? 'active' : ''}" onclick="switchFolder('Alle')">
                     <span class="text-sm font-medium"><i class="fas fa-layer-group mr-3 w-4"></i> Alle</span>
                 </div>
             `;
-
             foldersData.forEach(folder => {
-                // folder ist hier ein Objekt oder String, je nach Datenbank. Wir gehen von { name: '...' } aus oder String.
                 const fName = typeof folder === 'string' ? folder : folder.name;
-
                 html += `
                     <div class="sidebar-link rounded px-4 py-2 cursor-pointer flex items-center justify-between ${currentFolder === fName ? 'active' : ''}" onclick="switchFolder('${fName}')">
                         <span class="text-sm font-medium"><i class="far fa-folder mr-3 w-4"></i> ${fName}</span>
@@ -585,12 +567,10 @@
                     </div>
                 `;
             });
-
             folderList.innerHTML = html;
 
-            // Select im Modal updaten
             const select = document.getElementById('entry-folder');
-            select.innerHTML = '';
+            select.innerHTML = '<option value="Alle">Alle</option>';
             foldersData.forEach(f => {
                 const fName = typeof f === 'string' ? f : f.name;
                 select.innerHTML += `<option value="${fName}">${fName}</option>`;
@@ -607,15 +587,9 @@
             e.preventDefault();
             const name = document.getElementById('new-folder-name').value;
             if (!name) return;
-
-            // Sende an Azure
-            const result = await apiRequest('folders', 'POST', {
-                username: currentUser,
-                folderName: name
-            });
-
+            const result = await apiRequest('folders', 'POST', { username: currentUser, folderName: name });
             if (result && result.success) {
-                foldersData.push(name); // Optimistisches Update oder neu laden
+                foldersData.push(name);
                 closeModal('folder-modal');
                 document.getElementById('new-folder-name').value = '';
                 renderFolders();
@@ -630,13 +604,9 @@
             document.getElementById('delete-modal').classList.remove('hidden');
         }
 
-        // ==========================================
-        // PASSWORDS (ENTRIES)
-        // ==========================================
-
+        // PASSWORDS
         function renderPasswords() {
             const searchTerm = document.getElementById('search-input').value.toLowerCase();
-
             const filtered = entriesData.filter(entry => {
                 const isFolder = currentFolder === 'Alle' || entry.folder === currentFolder;
                 const isSearch = (entry.name || '').toLowerCase().includes(searchTerm) ||
@@ -647,7 +617,6 @@
 
             document.getElementById('current-folder-title').textContent = currentFolder;
             document.getElementById('entry-count').textContent = `${filtered.length} Einträge`;
-
             passwordGrid.innerHTML = '';
 
             if (filtered.length === 0) {
@@ -663,8 +632,7 @@
         function createCardHTML(entry) {
             let urlHtml = '';
             if (entry.url && entry.url.trim() !== '') {
-                let safeUrl = entry.url;
-                if (!safeUrl.startsWith('http')) safeUrl = 'https://' + safeUrl;
+                let safeUrl = entry.url.startsWith('http') ? entry.url : 'https://' + entry.url;
                 let hostname = safeUrl;
                 try { hostname = new URL(safeUrl).hostname; } catch (e) { }
                 urlHtml = `<a href="${safeUrl}" target="_blank" class="text-xs text-gold hover:underline truncate block max-w-[150px]">${hostname}</a>`;
@@ -722,18 +690,15 @@
             `;
         }
 
-        // Search Listener
         document.getElementById('search-input').addEventListener('input', renderPasswords);
 
-        // ==========================================
-        // MODAL LOGIC & CRUD OPERATIONS
-        // ==========================================
-
+        // MODALS
         function openPasswordModal() {
             document.getElementById('password-form').reset();
             document.getElementById('entry-id').value = '';
             document.getElementById('modal-title').textContent = 'Neues Passwort erstellen';
             document.getElementById('entry-password').type = 'text';
+            document.getElementById('entry-username').value = ''; // FIX: Clear username
             checkStrength('');
             document.getElementById('password-modal').classList.remove('hidden');
         }
@@ -744,9 +709,7 @@
 
         function closeModal(modalId) {
             document.getElementById(modalId).classList.add('hidden');
-            if (modalId === 'delete-modal') {
-                deleteTarget = null;
-            }
+            if (modalId === 'delete-modal') deleteTarget = null;
         }
 
         function editEntry(id) {
@@ -768,7 +731,6 @@
 
         document.getElementById('password-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-
             const id = document.getElementById('entry-id').value;
             const name = document.getElementById('entry-name').value;
             const folder = document.getElementById('entry-folder').value;
@@ -783,17 +745,14 @@
             }
 
             const entryData = {
-                id: id || null, // Wenn null, erstellt Backend eine ID
+                id: id || null,
                 user: currentUser,
                 name, folder, url, username, password: pass
             };
 
-            // Azure Call
             const result = await apiRequest('entries', 'POST', entryData);
 
             if (result && result.success) {
-                // Wir laden hier einfach alles neu, um sicherzugehen
-                // Alternativ könnte man das Array lokal updaten für mehr Speed
                 await loadApp();
                 closeModal('password-modal');
                 showToast('Passwort gespeichert');
@@ -813,41 +772,26 @@
             }
 
             if (deleteTarget.type === 'folder') {
-                const result = await apiRequest('folders', 'DELETE', {
-                    username: currentUser,
-                    folderName: deleteTarget.id
-                });
-
+                const result = await apiRequest('folders', 'DELETE', { username: currentUser, folderName: deleteTarget.id });
                 if (result && result.success) {
                     if (currentFolder === deleteTarget.id) currentFolder = 'Alle';
                     await loadApp();
                     showToast('Ordner gelöscht');
                 }
-
             } else if (deleteTarget.type === 'entry') {
-                const result = await apiRequest('entries', 'DELETE', {
-                    username: currentUser,
-                    id: deleteTarget.id
-                });
-
+                const result = await apiRequest('entries', 'DELETE', { username: currentUser, id: deleteTarget.id });
                 if (result && result.success) {
                     await loadApp();
                     showToast('Eintrag gelöscht');
                 }
             }
-
             closeModal('delete-modal');
         }
 
-        // ==========================================
         // UTILITIES
-        // ==========================================
-
         const slider = document.getElementById('pass-length');
         const sliderVal = document.getElementById('slider-val');
-        slider.oninput = function () {
-            sliderVal.textContent = this.value;
-        }
+        slider.oninput = function () { sliderVal.textContent = this.value; }
 
         function generatePassword() {
             const length = parseInt(slider.value);
@@ -887,17 +831,7 @@
 
         function copyToClipboard(text) {
             if (!text) return;
-            const textArea = document.createElement("textarea");
-            textArea.value = text;
-            document.body.appendChild(textArea);
-            textArea.select();
-            try {
-                document.execCommand('copy');
-                showToast('In die Zwischenablage kopiert!');
-            } catch (err) {
-                showToast('Kopieren fehlgeschlagen', 'error');
-            }
-            document.body.removeChild(textArea);
+            navigator.clipboard.writeText(text).then(() => showToast('Kopiert!')).catch(() => showToast('Fehler beim Kopieren', 'error'));
         }
 
         function toggleVisibility(id) {
@@ -908,7 +842,6 @@
         function toggleCardPassVisibility(id) {
             const input = document.getElementById(`pass-display-${id}`);
             const icon = document.getElementById(`eye-icon-${id}`);
-
             if (input.type === 'password') {
                 input.type = 'text';
                 icon.classList.remove('fa-eye');
@@ -923,7 +856,6 @@
         function showToast(message, type = 'success') {
             const toast = document.getElementById('toast');
             const msg = document.getElementById('toast-message');
-
             msg.textContent = message;
             if (type === 'error') {
                 toast.classList.remove('border-gold');
@@ -932,13 +864,9 @@
                 toast.classList.add('border-gold');
                 toast.classList.remove('border-red-600');
             }
-
             toast.classList.remove('translate-x-full');
-            setTimeout(() => {
-                toast.classList.add('translate-x-full');
-            }, 3000);
+            setTimeout(() => { toast.classList.add('translate-x-full'); }, 3000);
         }
-
     </script>
 </body>
 
