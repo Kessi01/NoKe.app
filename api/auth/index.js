@@ -1,4 +1,4 @@
-const { container } = require('../db');
+const { container } = require('../db.js');
 const bcrypt = require('bcryptjs');
  
 module.exports = async function (context, req) {
