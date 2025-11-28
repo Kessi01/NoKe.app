@@ -1,4 +1,7 @@
-const crypto = require('crypto'); // Node.js Built-in Modul
+// Crypto MUSS vor bcryptjs geladen werden und global verfügbar gemacht werden
+const crypto = require('crypto');
+global.crypto = crypto; // Macht crypto global verfügbar für bcryptjs
+
 const { container } = require('../db'); // .js ist optional
 const bcrypt = require('bcryptjs');
 
