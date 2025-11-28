@@ -1,3 +1,4 @@
+const crypto = require('crypto'); // Node.js Built-in Modul
 const { container } = require('../db'); // .js ist optional
 const bcrypt = require('bcryptjs');
 
