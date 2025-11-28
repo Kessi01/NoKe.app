@@ -6,12 +6,11 @@
     "start": "func start",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
     "@azure/cosmos": "^4.0.0",
     "bcryptjs": "^2.4.3"
-  },
-  "devDependencies": {},
-  "engines": {
-    "node": ">=18.0.0"
   }
 }
