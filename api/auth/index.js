@@ -1,129 +1,103 @@
-const { container } = require('../db.js');
+const { container } = require('../db'); // .js ist optional
 const bcrypt = require('bcryptjs');
 
 module.exports = async function (context, req) {
-    // 1. Sicherheitscheck: Datenbankverbindung prüfen
-    if (!container) {
-        context.log.error("CRITICAL: Datenbank-Container ist null. Prüfe db.js und Connection String.");
-        context.res = {
-            status: 500,
-            body: {
-                success: false,
-                message: "Server-Konfigurationsfehler: Keine Datenbankverbindung."
-            }
-        };
-        return;
-    }
-
-    // 2. Daten aus dem Request holen
-    const { action, username, password } = req.body || {};
-
-    // Validierung: Sind alle nötigen Daten da?
-    if (!action || !username || !password) {
-        context.res = {
-            status: 400,
-            body: {
-                success: false,
-                message: "Fehlende Daten: action, username und password sind erforderlich."
-            }
-        };
-        return;
-    }
+    context.log("🚀 Function 'RegisterLogin' wurde gestartet.");
 
     try {
-        // 3. Existiert der Benutzer bereits?
-        // Wir suchen nach einem User-Dokument mit diesem Benutzernamen
+        // --- CHECK 1: Ist der Request-Body überhaupt da? ---
+        // (Häufiger Fehler: Client sendet kein JSON oder falschen Content-Type)
+        if (!req.body) {
+            throw new Error("Der Request Body ist leer (undefined). Bitte sende 'Content-Type: application/json'.");
+        }
+
+        const { action, username, password } = req.body;
+
+        // --- CHECK 2: Sind die Datenbank-Objekte geladen? ---
+        // Wir prüfen das HIER, damit der Fehler im catch landet.
+        if (!container) {
+            // Wir loggen einmalig die Umgebungsvariable (ohne den ganzen Key zu zeigen), um zu sehen, ob sie existiert
+            const connStringDebug = process.env.COSMOS_CONNECTION_STRING ? "Vorhanden (Länge: " + process.env.COSMOS_CONNECTION_STRING.length + ")" : "NICHT GESETZT";
+            throw new Error(`Datenbank-Container konnte nicht geladen werden. ConnectionString Status: ${connStringDebug}`);
+        }
+
+        // --- CHECK 3: Validierung der Eingaben ---
+        if (!action || !username || !password) {
+            context.res = {
+                status: 400,
+                body: { success: false, message: "Fehlende Daten: action, username und password sind Pflichtfelder." }
+            };
+            return;
+        }
+
+        // --- DB ABFRAGE ---
+        context.log(`🔍 Suche nach User: ${username} für Action: ${action}`);
+        
         const querySpec = {
             query: "SELECT * FROM c WHERE c.username = @u AND c.type = 'user'",
             parameters: [{ name: "@u", value: username }]
         };
 
+        // Hier kann es knallen, wenn die Firewall blockt oder der Key falsch ist
         const { resources } = await container.items.query(querySpec).fetchAll();
-        const existingUser = resources.length > 0 ? resources[0] : null;
+        
+        context.log(`✅ DB Abfrage erfolgreich. Gefundene User: ${resources.length}`);
 
-        // ---------------------------------------------------------
-        // A) REGISTRIERUNG
-        // ---------------------------------------------------------
+        // --- LOGIK: REGISTER ---
         if (action === 'register') {
-            if (existingUser) {
-                context.res = {
-                    status: 409, // Conflict
-                    body: { success: false, message: "Benutzername ist bereits vergeben." }
-                };
+            if (resources.length > 0) {
+                context.res = { body: { success: false, message: "Benutzername vergeben" } };
                 return;
             }
-
-            // Passwort sicher hashen (Salt-Runden: 10)
+            
             const hashedPassword = await bcrypt.hash(password, 10);
-
-            // Neuen User in der DB anlegen
-            // ID muss unique sein, daher hängen wir _profile an oder nutzen eine UUID
-            await container.items.create({
-                id: username + "_profile", // Eindeutige ID für Cosmos DB
-                username: username,
-                password: hashedPassword,
+            
+            await container.items.create({ 
+                id: username + "_profile", 
+                username, 
+                password: hashedPassword, 
                 type: "user",
                 createdAt: new Date().toISOString()
             });
 
-            context.res = {
-                status: 201, // Created
-                body: { success: true, message: "Benutzer erfolgreich erstellt." }
-            };
+            context.res = { body: { success: true, message: "User angelegt" } };
 
-        // ---------------------------------------------------------
-        // B) LOGIN
-        // ---------------------------------------------------------
+        // --- LOGIK: LOGIN ---
         } else if (action === 'login') {
-            if (!existingUser) {
-                // Generische Fehlermeldung aus Sicherheitsgründen (User Enumeration verhindern)
-                context.res = {
-                    status: 401, // Unauthorized
-                    body: { success: false, message: "Benutzername oder Passwort falsch." }
-                };
+            if (resources.length === 0) {
+                context.res = { body: { success: false, message: "Benutzer nicht gefunden" } };
                 return;
             }
-
-            // Passwort überprüfen
-            const isPasswordValid = await bcrypt.compare(password, existingUser.password);
-
-            if (!isPasswordValid) {
-                context.res = {
-                    status: 401,
-                    body: { success: false, message: "Benutzername oder Passwort falsch." }
-                };
+            
+            const valid = await bcrypt.compare(password, resources[0].password);
+            
+            if (!valid) {
+                context.res = { body: { success: false, message: "Falsches Passwort" } };
                 return;
             }
-
-            // Login erfolgreich
-            context.res = {
-                status: 200,
-                body: {
-                    success: true,
-                    message: "Login erfolgreich.",
-                    username: existingUser.username
-                }
-            };
+            
+            context.res = { body: { success: true, username } };
 
         } else {
-            // Unbekannte Action
-            context.res = {
-                status: 400,
-                body: { success: false, message: `Unbekannte Aktion: ${action}` }
-            };
+            context.res = { status: 400, body: { success: false, message: "Ungültige Action" } };
         }
 
     } catch (error) {
-        // 4. Globales Error Handling
-        context.log.error("Auth API Error:", error);
-        
-        context.res = {
-            status: 200,
-            body: {
-                success: false,
-                message: "Ein interner Serverfehler ist aufgetreten.",
-                debug: error.message // Nur für Entwicklung, später entfernen!
-            }
+        // --- FEHLERANALYSE ---
+        // Das hier taucht in den Azure Logs (Monitor) auf
+        context.log.error("❌ CRITICAL ERROR in RegisterLogin:");
+        context.log.error("Message: ", error.message);
+        context.log.error("Stack Trace: ", error.stack); // Zeigt die genaue Zeile im Code an!
+
+        context.res = { 
+            status: 500, 
+            body: { 
+                success: false, 
+                message: "Interner Serverfehler (siehe Logs)",
+                // DEBUG-INFO: Das hier gibt dir den Fehler direkt in Postman/Frontend zurück.
+                // ACHTUNG: Sobald es läuft, nimm 'errorDetails' wieder raus!
+                errorDetails: error.message 
+            } 
         };
     }
 };
