@@ -134,358 +134,563 @@
                         required>
                 </div>
                 <button type="submit" class="btn-gold w-full py-3 rounded mt-4">Anmelden</button>
-                <p class="text-center text-sm text-gray-400 mt-4">
-                    Noch kein Konto? <a href="#" onclick="toggleAuth('register')"
-                        class="text-gold hover:underline">Registrieren</a>
-                </p>
-            </form>
+                <!DOCTYPE html>
+                <html lang="de">
 
-            <!-- Register Form (Hidden by default) -->
-            <form id="register-form" class="space-y-6 hidden">
-                console.log("✅ Registrierung erfolgreich!");
-                showToast('Konto erstellt! Bitte anmelden.');
-                toggleAuth('login');
-                } else {
-                console.error("❌ Registrierung fehlgeschlagen:", result ? result.message : "Keine Antwort");
-                showToast(result?.message || 'Registrierung fehlgeschlagen', 'error');
-                }
-                });
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>NoKe Passwortmanager</title>
+                    <!-- Tailwind CSS für schnelles, sauberes Styling -->
+                    <script src="https://cdn.tailwindcss.com"></script>
+                    <!-- FontAwesome für Icons -->
+                    <link rel="stylesheet"
+                        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-                function logout() {
-                currentUser = null;
-                currentFolder = 'Alle';
-                foldersData = [];
-                entriesData = [];
-                authScreen.classList.remove('hidden');
-                appInterface.classList.add('hidden');
-                document.getElementById('login-form').reset();
-                }
+                    <script>
+                        tailwind.config = {
+                            theme: {
+                                extend: {
+                                    colors: {
+                                        black: '#000000',
+                                        darkgray: '#111111',
+                                        gold: '#C49C48',
+                                        goldhover: '#a37f36',
+                                        offwhite: '#e5e5e5'
+                                    }
+                                }
+                            }
+                        }
+                    </script>
+                    <style>
+                        body {
+                            background-color: #000000;
+                            color: #e5e5e5;
+                            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                        }
 
-                // ==========================================
-                // APP LOGIC (DATA FETCHING)
-                // ==========================================
+                        /* Scrollbar Anpassung für Chrome/Edge/Safari */
+                        ::-webkit-scrollbar {
+                            width: 8px;
+                        }
 
-                async function loadApp() {
-                // Hole alle Daten für den User auf einmal
-                // Erwartet Antwort: { folders: [...], entries: [...] }
-                const data = await apiRequest(`data?username=${encodeURIComponent(currentUser)}`, 'GET');
+                        ::-webkit-scrollbar-track {
+                            background: #000000;
+                        }
 
-                if (data) {
-                foldersData = data.folders || [];
-                entriesData = data.entries || [];
-                renderFolders();
-                renderPasswords();
-                }
-                }
+                        ::-webkit-scrollbar-thumb {
+                            background: #333;
+                            border-radius: 4px;
+                        }
 
-                // ==========================================
-                // FOLDERS
-                // ==========================================
+                        ::-webkit-scrollbar-thumb:hover {
+                            background: #C49C48;
+                        }
 
-                function renderFolders() {
-                let html = `
-                <div class="sidebar-link rounded px-4 py-2 cursor-pointer flex items-center justify-between ${currentFolder === 'Alle' ? 'active' : ''}"
-                    onclick="switchFolder('Alle')">
-                    <span class="text-sm font-medium"><i class="fas fa-layer-group mr-3 w-4"></i> Alle</span>
-                </div>
-                `;
+                        .input-field {
+                            background-color: #111111;
+                            border: 1px solid #333;
+                            color: white;
+                            transition: border-color 0.3s, box-shadow 0.3s;
+                        }
 
-                foldersData.forEach(folder => {
-                // folder ist hier ein Objekt oder String, je nach Datenbank. Wir gehen von { name: '...' } aus oder
-                String.
-                const fName = typeof folder === 'string' ? folder : folder.name;
+                        .input-field:focus {
+                            outline: none;
+                            border-color: #C49C48;
+                            box-shadow: 0 0 0 1px #C49C48;
+                        }
 
-                html += `
-                <div class="sidebar-link rounded px-4 py-2 cursor-pointer flex items-center justify-between ${currentFolder === fName ? 'active' : ''}"
-                    onclick="switchFolder('${fName}')">
-                    <span class="text-sm font-medium"><i class="far fa-folder mr-3 w-4"></i> ${fName}</span>
-                    <button onclick="initiateDeleteFolder('${fName}', event)"
-                        class="text-xs text-gray-600 hover:text-red-500 p-1"><i class="fas fa-trash"></i></button>
-                </div>
-                `;
-                });
+                        .btn-gold {
+                            background-color: #C49C48;
+                            color: black;
+                            font-weight: 600;
+                            transition: all 0.2s;
+                        }
 
-                folderList.innerHTML = html;
+                        .btn-gold:hover {
+                            background-color: #a37f36;
+                            transform: translateY(-1px);
+                        }
 
-                // Select im Modal updaten
-                const select = document.getElementById('entry-folder');
-                select.innerHTML = '';
-                foldersData.forEach(f => {
-                const fName = typeof f === 'string' ? f : f.name;
-                select.innerHTML += `<option value="${fName}">${fName}</option>`;
-                });
-                }
+                        .sidebar-link {
+                            transition: all 0.2s;
+                            border-left: 3px solid transparent;
+                        }
 
-                function switchFolder(folderName) {
-                currentFolder = folderName;
-                renderFolders();
-                renderPasswords();
-                }
+                        .sidebar-link:hover,
+                        .sidebar-link.active {
+                            background-color: #111111;
+                            border-left-color: #C49C48;
+                            color: #C49C48;
+                        }
 
-                async function createFolder(e) {
-                e.preventDefault();
-                const name = document.getElementById('new-folder-name').value;
-                if (!name) return;
+                        /* Passwort Stärke Balken Animation */
+                        .strength-bar {
+                            transition: width 0.3s ease-in-out, background-color 0.3s;
+                        }
 
-                // Sende an Azure
-                const result = await apiRequest('folders', 'POST', {
-                username: currentUser,
-                folderName: name
-                });
+                        /* Loading Overlay */
+                        #loading-overlay {
+                            backdrop-filter: blur(2px);
+                        }
+                    </style>
+                </head>
 
-                if (result && result.success) {
-                foldersData.push(name); // Optimistisches Update oder neu laden
-                closeModal('folder-modal');
-                document.getElementById('new-folder-name').value = '';
-                renderFolders();
-                showToast(`Ordner "${name}" erstellt`);
-                }
-                }
+                <body class="h-screen overflow-hidden flex flex-col">
 
-                function initiateDeleteFolder(folderName, event) {
-                event.stopPropagation();
-                deleteTarget = { type: 'folder', id: folderName };
-                document.getElementById('delete-modal-text').textContent = `Den Ordner "${folderName}" und alle Inhalte
-                wirklich löschen?`;
-                document.getElementById('delete-modal').classList.remove('hidden');
-                }
+                    <!-- ================= NOTIFICATION TOAST ================= -->
+                    <div id="toast"
+                        class="fixed top-5 right-5 bg-darkgray border-l-4 border-gold text-white px-6 py-4 rounded shadow-2xl transform translate-x-full transition-transform duration-300 z-50">
+                        <span id="toast-message">Nachricht</span>
+                    </div>
 
-                // ==========================================
-                // PASSWORDS (ENTRIES)
-                // ==========================================
+                    <!-- ================= LOADING SPINNER (AZURE API) ================= -->
+                    <div id="loading-overlay"
+                        class="fixed inset-0 z-[60] hidden flex items-center justify-center bg-black bg-opacity-50">
+                        <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gold"></div>
+                    </div>
 
-                function renderPasswords() {
-                const searchTerm = document.getElementById('search-input').value.toLowerCase();
+                    <!-- ================= AUTH SCREEN (LOGIN / REGISTER) ================= -->
+                    <div id="auth-screen"
+                        class="fixed inset-0 z-40 flex items-center justify-center bg-black bg-opacity-100">
+                        <div class="bg-darkgray p-8 rounded-xl shadow-2xl border border-gray-800 w-full max-w-md">
+                            <div class="text-center mb-8">
+                                <h1 class="text-4xl font-bold text-gold tracking-wider mb-2">NoKe</h1>
+                                <p class="text-gray-400 text-sm">Sicherer Passwortmanager (Azure Cloud)</p>
+                            </div>
 
-                const filtered = entriesData.filter(entry => {
-                const isFolder = currentFolder === 'Alle' || entry.folder === currentFolder;
-                const isSearch = (entry.name || '').toLowerCase().includes(searchTerm) ||
-                (entry.username || '').toLowerCase().includes(searchTerm) ||
-                (entry.url || '').toLowerCase().includes(searchTerm);
-                return isFolder && isSearch;
-                });
+                            <!-- Login Form -->
+                            <form id="login-form" class="space-y-6">
+                                <div>
+                                    <label
+                                        class="block text-xs text-gold uppercase tracking-widest mb-1">Benutzername</label>
+                                    <input type="text" id="login-user" class="input-field w-full p-3 rounded"
+                                        placeholder="Ihr Benutzername" required>
+                                </div>
+                                <div>
+                                    <label
+                                        class="block text-xs text-gold uppercase tracking-widest mb-1">Passwort</label>
+                                    <input type="password" id="login-pass" class="input-field w-full p-3 rounded"
+                                        placeholder="••••••••" required>
+                                </div>
+                                <button type="submit" class="btn-gold w-full py-3 rounded mt-4">Anmelden</button>
+                                <p class="text-center text-sm text-gray-400 mt-4">
+                                    Noch kein Konto? <a href="#" onclick="toggleAuth('register')"
+                                        class="text-gold hover:underline">Registrieren</a>
+                                </p>
+                            </form>
 
-                document.getElementById('current-folder-title').textContent = currentFolder;
-                document.getElementById('entry-count').textContent = `${filtered.length} Einträge`;
+                            <!-- Register Form (Hidden by default) -->
+                            <form id="register-form" class="space-y-6 hidden">
+                                <div>
+                                    <label class="block text-xs text-gold uppercase tracking-widest mb-1">Neuer
+                                        Benutzername</label>
+                                    <input type="text" id="reg-user" class="input-field w-full p-3 rounded"
+                                        placeholder="Wählen Sie einen Namen" required>
+                                </div>
+                                <div>
+                                    <label
+                                        class="block text-xs text-gold uppercase tracking-widest mb-1">Master-Passwort</label>
+                                    <input type="password" id="reg-pass" class="input-field w-full p-3 rounded"
+                                        placeholder="Sicheres Passwort wählen" required>
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gold uppercase tracking-widest mb-1">Passwort
+                                        bestätigen</label>
+                                    <input type="password" id="reg-pass-confirm" class="input-field w-full p-3 rounded"
+                                        placeholder="Passwort wiederholen" required>
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gold uppercase tracking-widest mb-1">Telefonnummer
+                                        (für MFA)</label>
+                                    <input type="tel" id="reg-phone" class="input-field w-full p-3 rounded"
+                                        placeholder="+41 79 123 45 67" required>
+                                </div>
+                                <button type="submit" class="btn-gold w-full py-3 rounded mt-4">Konto erstellen</button>
+                                <p class="text-center text-sm text-gray-400 mt-4">
+                                    Bereits registriert? <a href="#" onclick="toggleAuth('login')"
+                                        class="text-gold hover:underline">Anmelden</a>
+                                </p>
+                            </form>
+                            // Register Handler
+                            document.getElementById('register-form').addEventListener('submit', async (e) => {
+                            e.preventDefault();
+                            const user = document.getElementById('reg-user').value;
+                            const pass = document.getElementById('reg-pass').value;
+                            const passConfirm = document.getElementById('reg-pass-confirm').value;
+                            const phone = document.getElementById('reg-phone').value;
 
-                passwordGrid.innerHTML = '';
+                            if (pass !== passConfirm) {
+                            showToast('Passwörter stimmen nicht überein!', 'error');
+                            return;
+                            }
 
-                if (filtered.length === 0) {
-                document.getElementById('empty-state').classList.remove('hidden');
-                } else {
-                document.getElementById('empty-state').classList.add('hidden');
-                filtered.forEach(entry => {
-                passwordGrid.innerHTML += createCardHTML(entry);
-                });
-                }
-                }
+                            console.log("📝 REGISTRIERUNG gestartet:");
+                            console.log(" 👤 Username:", user);
+                            console.log(" 📱 Phone:", phone);
 
-                function createCardHTML(entry) {
-                let urlHtml = '';
-                if (entry.url && entry.url.trim() !== '') {
-                let safeUrl = entry.url;
-                if (!safeUrl.startsWith('http')) safeUrl = 'https://' + safeUrl;
-                let hostname = safeUrl;
-                try { hostname = new URL(safeUrl).hostname; } catch (e) { }
-                urlHtml = `<a href="${safeUrl}" target="_blank"
-                    class="text-xs text-gold hover:underline truncate block max-w-[150px]">${hostname}</a>`;
-                }
+                            const result = await apiRequest('auth', 'POST', {
+                            action: 'register',
+                            username: user,
+                            password: pass,
+                            phoneNumber: phone
+                            });
 
-                return `
-                <div
-                    class="bg-darkgray rounded-xl p-5 border border-gray-800 hover:border-gold transition-colors group relative shadow-lg">
-                    <div class="flex justify-between items-start mb-4">
-                        <div class="flex items-center">
+                            console.log("📋 Registrierung Ergebnis:", result);
+
+                            if (result && result.success) {
+                            console.log("✅ Registrierung erfolgreich!");
+                            showToast('Konto erstellt! Bitte anmelden.');
+                            toggleAuth('login');
+                            } else {
+                            console.error("❌ Registrierung fehlgeschlagen:", result ? result.message : "Keine Antwort");
+                            showToast(result?.message || 'Registrierung fehlgeschlagen', 'error');
+                            }
+                            });
+
+                            function logout() {
+                            currentUser = null;
+                            currentFolder = 'Alle';
+                            foldersData = [];
+                            entriesData = [];
+                            authScreen.classList.remove('hidden');
+                            appInterface.classList.add('hidden');
+                            document.getElementById('login-form').reset();
+                            }
+
+                            // ==========================================
+                            // APP LOGIC (DATA FETCHING)
+                            // ==========================================
+
+                            async function loadApp() {
+                            // Hole alle Daten für den User auf einmal
+                            // Erwartet Antwort: { folders: [...], entries: [...] }
+                            const data = await apiRequest(`data?username=${encodeURIComponent(currentUser)}`, 'GET');
+
+                            if (data) {
+                            foldersData = data.folders || [];
+                            entriesData = data.entries || [];
+                            renderFolders();
+                            renderPasswords();
+                            }
+                            }
+
+                            // ==========================================
+                            // FOLDERS
+                            // ==========================================
+
+                            function renderFolders() {
+                            let html = `
+                            <div class="sidebar-link rounded px-4 py-2 cursor-pointer flex items-center justify-between ${currentFolder === 'Alle' ? 'active' : ''}"
+                                onclick="switchFolder('Alle')">
+                                <span class="text-sm font-medium"><i class="fas fa-layer-group mr-3 w-4"></i>
+                                    Alle</span>
+                            </div>
+                            `;
+
+                            foldersData.forEach(folder => {
+                            // folder ist hier ein Objekt oder String, je nach Datenbank. Wir gehen von { name: '...' }
+                            aus oder
+                            String.
+                            const fName = typeof folder === 'string' ? folder : folder.name;
+
+                            html += `
+                            <div class="sidebar-link rounded px-4 py-2 cursor-pointer flex items-center justify-between ${currentFolder === fName ? 'active' : ''}"
+                                onclick="switchFolder('${fName}')">
+                                <span class="text-sm font-medium"><i class="far fa-folder mr-3 w-4"></i> ${fName}</span>
+                                <button onclick="initiateDeleteFolder('${fName}', event)"
+                                    class="text-xs text-gray-600 hover:text-red-500 p-1"><i
+                                        class="fas fa-trash"></i></button>
+                            </div>
+                            `;
+                            });
+
+                            folderList.innerHTML = html;
+
+                            // Select im Modal updaten
+                            const select = document.getElementById('entry-folder');
+                            select.innerHTML = '';
+                            foldersData.forEach(f => {
+                            const fName = typeof f === 'string' ? f : f.name;
+                            select.innerHTML += `<option value="${fName}">${fName}</option>`;
+                            });
+                            }
+
+                            function switchFolder(folderName) {
+                            currentFolder = folderName;
+                            renderFolders();
+                            renderPasswords();
+                            }
+
+                            async function createFolder(e) {
+                            e.preventDefault();
+                            const name = document.getElementById('new-folder-name').value;
+                            if (!name) return;
+
+                            // Sende an Azure
+                            const result = await apiRequest('folders', 'POST', {
+                            username: currentUser,
+                            folderName: name
+                            });
+
+                            if (result && result.success) {
+                            foldersData.push(name); // Optimistisches Update oder neu laden
+                            closeModal('folder-modal');
+                            document.getElementById('new-folder-name').value = '';
+                            renderFolders();
+                            showToast(`Ordner "${name}" erstellt`);
+                            }
+                            }
+
+                            function initiateDeleteFolder(folderName, event) {
+                            event.stopPropagation();
+                            deleteTarget = { type: 'folder', id: folderName };
+                            document.getElementById('delete-modal-text').textContent = `Den Ordner "${folderName}" und
+                            alle Inhalte
+                            wirklich löschen?`;
+                            document.getElementById('delete-modal').classList.remove('hidden');
+                            }
+
+                            // ==========================================
+                            // PASSWORDS (ENTRIES)
+                            // ==========================================
+
+                            function renderPasswords() {
+                            const searchTerm = document.getElementById('search-input').value.toLowerCase();
+
+                            const filtered = entriesData.filter(entry => {
+                            const isFolder = currentFolder === 'Alle' || entry.folder === currentFolder;
+                            const isSearch = (entry.name || '').toLowerCase().includes(searchTerm) ||
+                            (entry.username || '').toLowerCase().includes(searchTerm) ||
+                            (entry.url || '').toLowerCase().includes(searchTerm);
+                            return isFolder && isSearch;
+                            });
+
+                            document.getElementById('current-folder-title').textContent = currentFolder;
+                            document.getElementById('entry-count').textContent = `${filtered.length} Einträge`;
+
+                            passwordGrid.innerHTML = '';
+
+                            if (filtered.length === 0) {
+                            document.getElementById('empty-state').classList.remove('hidden');
+                            } else {
+                            document.getElementById('empty-state').classList.add('hidden');
+                            filtered.forEach(entry => {
+                            passwordGrid.innerHTML += createCardHTML(entry);
+                            });
+                            }
+                            }
+
+                            function createCardHTML(entry) {
+                            let urlHtml = '';
+                            if (entry.url && entry.url.trim() !== '') {
+                            let safeUrl = entry.url;
+                            if (!safeUrl.startsWith('http')) safeUrl = 'https://' + safeUrl;
+                            let hostname = safeUrl;
+                            try { hostname = new URL(safeUrl).hostname; } catch (e) { }
+                            urlHtml = `<a href="${safeUrl}" target="_blank"
+                                class="text-xs text-gold hover:underline truncate block max-w-[150px]">${hostname}</a>`;
+                            }
+
+                            return `
                             <div
-                                class="w-10 h-10 rounded bg-black flex items-center justify-center text-gold border border-gray-800 mr-3 text-lg">
-                                ${entry.name.charAt(0).toUpperCase()}
+                                class="bg-darkgray rounded-xl p-5 border border-gray-800 hover:border-gold transition-colors group relative shadow-lg">
+                                <div class="flex justify-between items-start mb-4">
+                                    <div class="flex items-center">
+                                        <div
+                                            class="w-10 h-10 rounded bg-black flex items-center justify-center text-gold border border-gray-800 mr-3 text-lg">
+                                            ${entry.name.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div>
+                                            <h3 class="font-bold text-white text-lg leading-tight">${entry.name}</h3>
+                                            ${urlHtml}
+                                        </div>
+                                    </div>
+                                    <div class="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button onclick="editEntry('${entry.id}')"
+                                            class="w-8 h-8 rounded-full bg-gray-800 hover:bg-black text-gray-300 hover:text-gold flex items-center justify-center"
+                                            title="Bearbeiten">
+                                            <i class="fas fa-pen text-xs"></i>
+                                        </button>
+                                        <button onclick="initiateDeleteEntry('${entry.id}')"
+                                            class="w-8 h-8 rounded-full bg-gray-800 hover:bg-red-900 text-gray-300 hover:text-red-500 flex items-center justify-center"
+                                            title="Löschen">
+                                            <i class="fas fa-trash text-xs"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="space-y-3">
+                                    <div
+                                        class="bg-black p-2 rounded border border-gray-800 flex justify-between items-center">
+                                        <div class="flex items-center overflow-hidden">
+                                            <i class="fas fa-user text-gray-600 text-xs w-5"></i>
+                                            <span class="text-sm text-gray-300 truncate ml-1">${entry.username}</span>
+                                        </div>
+                                        <button onclick="copyToClipboard('${entry.username}')"
+                                            class="text-gray-500 hover:text-gold px-2">
+                                            <i class="far fa-copy"></i>
+                                        </button>
+                                    </div>
+
+                                    <div
+                                        class="bg-black p-2 rounded border border-gray-800 flex justify-between items-center">
+                                        <div class="flex items-center overflow-hidden">
+                                            <i class="fas fa-key text-gray-600 text-xs w-5"></i>
+                                            <input type="password" value="${entry.password}"
+                                                class="bg-transparent border-none text-sm text-gray-300 w-full focus:outline-none"
+                                                readonly id="pass-display-${entry.id}">
+                                        </div>
+                                        <div class="flex items-center">
+                                            <button onclick="toggleCardPassVisibility('${entry.id}')"
+                                                class="text-gray-500 hover:text-white px-2">
+                                                <i class="far fa-eye" id="eye-icon-${entry.id}"></i>
+                                            </button>
+                                            <button onclick="copyToClipboard('${entry.password}')"
+                                                class="text-gray-500 hover:text-gold px-2">
+                                                <i class="far fa-copy"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                            <div>
-                                <h3 class="font-bold text-white text-lg leading-tight">${entry.name}</h3>
-                                ${urlHtml}
-                            </div>
-                        </div>
-                        <div class="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onclick="editEntry('${entry.id}')"
-                                class="w-8 h-8 rounded-full bg-gray-800 hover:bg-black text-gray-300 hover:text-gold flex items-center justify-center"
-                                title="Bearbeiten">
-                                <i class="fas fa-pen text-xs"></i>
-                            </button>
-                            <button onclick="initiateDeleteEntry('${entry.id}')"
-                                class="w-8 h-8 rounded-full bg-gray-800 hover:bg-red-900 text-gray-300 hover:text-red-500 flex items-center justify-center"
-                                title="Löschen">
-                                <i class="fas fa-trash text-xs"></i>
-                            </button>
-                        </div>
-                    </div>
+                            `;
+                            }
 
-                    <div class="space-y-3">
-                        <div class="bg-black p-2 rounded border border-gray-800 flex justify-between items-center">
-                            <div class="flex items-center overflow-hidden">
-                                <i class="fas fa-user text-gray-600 text-xs w-5"></i>
-                                <span class="text-sm text-gray-300 truncate ml-1">${entry.username}</span>
-                            </div>
-                            <button onclick="copyToClipboard('${entry.username}')"
-                                class="text-gray-500 hover:text-gold px-2">
-                                <i class="far fa-copy"></i>
-                            </button>
-                        </div>
+                            // Search Listener
+                            document.getElementById('search-input').addEventListener('input', renderPasswords);
 
-                        <div class="bg-black p-2 rounded border border-gray-800 flex justify-between items-center">
-                            <div class="flex items-center overflow-hidden">
-                                <i class="fas fa-key text-gray-600 text-xs w-5"></i>
-                                <input type="password" value="${entry.password}"
-                                    class="bg-transparent border-none text-sm text-gray-300 w-full focus:outline-none"
-                                    readonly id="pass-display-${entry.id}">
-                            </div>
-                            <div class="flex items-center">
-                                <button onclick="toggleCardPassVisibility('${entry.id}')"
-                                    class="text-gray-500 hover:text-white px-2">
-                                    <i class="far fa-eye" id="eye-icon-${entry.id}"></i>
-                                </button>
-                                <button onclick="copyToClipboard('${entry.password}')"
-                                    class="text-gray-500 hover:text-gold px-2">
-                                    <i class="far fa-copy"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                `;
-                }
+                            // ==========================================
+                            // MODAL LOGIC & CRUD OPERATIONS
+                            // ==========================================
 
-                // Search Listener
-                document.getElementById('search-input').addEventListener('input', renderPasswords);
+                            function openPasswordModal() {
+                            document.getElementById('password-form').reset();
+                            document.getElementById('entry-id').value = '';
+                            document.getElementById('modal-title').textContent = 'Neues Passwort erstellen';
+                            document.getElementById('entry-password').type = 'text';
+                            checkStrength('');
+                            document.getElementById('password-modal').classList.remove('hidden');
+                            }
 
-                // ==========================================
-                // MODAL LOGIC & CRUD OPERATIONS
-                // ==========================================
+                            function openFolderModal() {
+                            document.getElementById('folder-modal').classList.remove('hidden');
+                            }
 
-                function openPasswordModal() {
-                document.getElementById('password-form').reset();
-                document.getElementById('entry-id').value = '';
-                document.getElementById('modal-title').textContent = 'Neues Passwort erstellen';
-                document.getElementById('entry-password').type = 'text';
-                checkStrength('');
-                document.getElementById('password-modal').classList.remove('hidden');
-                }
+                            function closeModal(modalId) {
+                            document.getElementById(modalId).classList.add('hidden');
+                            if (modalId === 'delete-modal') {
+                            deleteTarget = null;
+                            }
+                            }
 
-                function openFolderModal() {
-                document.getElementById('folder-modal').classList.remove('hidden');
-                }
+                            function editEntry(id) {
+                            const entry = entriesData.find(e => e.id === id);
+                            if (!entry) return;
 
-                function closeModal(modalId) {
-                document.getElementById(modalId).classList.add('hidden');
-                if (modalId === 'delete-modal') {
-                deleteTarget = null;
-                }
-                }
+                            document.getElementById('entry-id').value = entry.id;
+                            document.getElementById('entry-name').value = entry.name;
+                            document.getElementById('entry-folder').value = entry.folder;
+                            document.getElementById('entry-url').value = entry.url;
+                            document.getElementById('entry-username').value = entry.username;
+                            document.getElementById('entry-password').value = entry.password;
+                            document.getElementById('entry-password-confirm').value = entry.password;
 
-                function editEntry(id) {
-                const entry = entriesData.find(e => e.id === id);
-                if (!entry) return;
+                            checkStrength(entry.password);
+                            document.getElementById('modal-title').textContent = 'Passwort bearbeiten';
+                            document.getElementById('password-modal').classList.remove('hidden');
+                            }
 
-                document.getElementById('entry-id').value = entry.id;
-                document.getElementById('entry-name').value = entry.name;
-                document.getElementById('entry-folder').value = entry.folder;
-                document.getElementById('entry-url').value = entry.url;
-                document.getElementById('entry-username').value = entry.username;
-                document.getElementById('entry-password').value = entry.password;
-                document.getElementById('entry-password-confirm').value = entry.password;
+                            document.getElementById('password-form').addEventListener('submit', async (e) => {
+                            e.preventDefault();
 
-                checkStrength(entry.password);
-                document.getElementById('modal-title').textContent = 'Passwort bearbeiten';
-                document.getElementById('password-modal').classList.remove('hidden');
-                }
+                            const id = document.getElementById('entry-id').value;
+                            const name = document.getElementById('entry-name').value;
+                            const folder = document.getElementById('entry-folder').value;
+                            const url = document.getElementById('entry-url').value;
+                            const username = document.getElementById('entry-username').value;
+                            const pass = document.getElementById('entry-password').value;
+                            const passConfirm = document.getElementById('entry-password-confirm').value;
 
-                document.getElementById('password-form').addEventListener('submit', async (e) => {
-                e.preventDefault();
+                            if (pass !== passConfirm) {
+                            showToast('Passwörter stimmen nicht überein!', 'error');
+                            return;
+                            }
 
-                const id = document.getElementById('entry-id').value;
-                const name = document.getElementById('entry-name').value;
-                const folder = document.getElementById('entry-folder').value;
-                const url = document.getElementById('entry-url').value;
-                const username = document.getElementById('entry-username').value;
-                const pass = document.getElementById('entry-password').value;
-                const passConfirm = document.getElementById('entry-password-confirm').value;
+                            const entryData = {
+                            id: id || null, // Wenn null, erstellt Backend eine ID
+                            user: currentUser,
+                            name, folder, url, username, password: pass
+                            };
 
-                if (pass !== passConfirm) {
-                showToast('Passwörter stimmen nicht überein!', 'error');
-                return;
-                }
+                            // Azure Call
+                            const result = await apiRequest('entries', 'POST', entryData);
 
-                const entryData = {
-                id: id || null, // Wenn null, erstellt Backend eine ID
-                user: currentUser,
-                name, folder, url, username, password: pass
-                };
+                            if (result && result.success) {
+                            // Wir laden hier einfach alles neu, um sicherzugehen
+                            // Alternativ könnte man das Array lokal updaten für mehr Speed
+                            await loadApp();
+                            closeModal('password-modal');
+                            showToast('Passwort gespeichert');
+                            }
+                            });
 
-                // Azure Call
-                const result = await apiRequest('entries', 'POST', entryData);
+                            function initiateDeleteEntry(id) {
+                            deleteTarget = { type: 'entry', id: id };
+                            document.getElementById('delete-modal-text').textContent = "Bist du sicher, dass du diesen
+                            Eintrag
+                            löschen möchtest?";
+                            document.getElementById('delete-modal').classList.remove('hidden');
+                            }
 
-                if (result && result.success) {
-                // Wir laden hier einfach alles neu, um sicherzugehen
-                // Alternativ könnte man das Array lokal updaten für mehr Speed
-                await loadApp();
-                closeModal('password-modal');
-                showToast('Passwort gespeichert');
-                }
-                });
+                            async function confirmDelete() {
+                            if (!deleteTarget) {
+                            closeModal('delete-modal');
+                            return;
+                            }
 
-                function initiateDeleteEntry(id) {
-                deleteTarget = { type: 'entry', id: id };
-                document.getElementById('delete-modal-text').textContent = "Bist du sicher, dass du diesen Eintrag
-                löschen möchtest?";
-                document.getElementById('delete-modal').classList.remove('hidden');
-                }
+                            if (deleteTarget.type === 'folder') {
+                            const result = await apiRequest('folders', 'DELETE', {
+                            username: currentUser,
+                            folderName: deleteTarget.id
+                            });
 
-                async function confirmDelete() {
-                if (!deleteTarget) {
-                closeModal('delete-modal');
-                return;
-                }
+                            if (result && result.success) {
+                            if (currentFolder === deleteTarget.id) currentFolder = 'Alle';
+                            await loadApp();
+                            showToast('Ordner gelöscht');
+                            }
 
-                if (deleteTarget.type === 'folder') {
-                const result = await apiRequest('folders', 'DELETE', {
-                username: currentUser,
-                folderName: deleteTarget.id
-                });
+                            } else if (deleteTarget.type === 'entry') {
+                            const result = await apiRequest('entries', 'DELETE', {
+                            username: currentUser,
+                            id: deleteTarget.id
+                            });
 
-                if (result && result.success) {
-                if (currentFolder === deleteTarget.id) currentFolder = 'Alle';
-                await loadApp();
-                showToast('Ordner gelöscht');
-                }
+                            if (result && result.success) {
+                            await loadApp();
+                            showToast('Eintrag gelöscht');
+                            }
+                            }
 
-                } else if (deleteTarget.type === 'entry') {
-                const result = await apiRequest('entries', 'DELETE', {
-                username: currentUser,
-                id: deleteTarget.id
-                });
+                            closeModal('delete-modal');
+                            }
 
-                if (result && result.success) {
-                await loadApp();
-                showToast('Eintrag gelöscht');
-                }
-                }
+                            // ==========================================
+                            // UTILITIES
+                            // ==========================================
 
-                closeModal('delete-modal');
-                }
+                            const slider = document.getElementById('pass-length');
+                            const sliderVal = document.getElementById('slider-val');
+                            slider.oninput = function () {
+                            sliderVal.textContent = this.value;
+                            }
 
-                // ==========================================
-                // UTILITIES
-                // ==========================================
-
-                const slider = document.getElementById('pass-length');
-                const sliderVal = document.getElementById('slider-val');
-                slider.oninput = function () {
-                sliderVal.textContent = this.value;
-                }
-
-                function generatePassword() {
-                const length = parseInt(slider.value);
-                const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+~`|}{[]:;?>
-                <,. /-=";
+                            function generatePassword() {
+                            const length = parseInt(slider.value);
+                            const charset =
+                            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+~`|}{[]:;?>
+                            <,. /-=";
             let retVal = "";
             for (let i = 0, n = charset.length; i < length; ++i) {
                 retVal += charset.charAt(Math.floor(Math.random() * n));
@@ -532,24 +737,28 @@
         function copyToClipboard(text) {
             if (!text) return;
             const textArea = document.createElement(" textarea"); textArea.value=text;
-                    document.body.appendChild(textArea); textArea.select(); try { document.execCommand('copy');
-                    showToast('In die Zwischenablage kopiert!'); } catch (err) { showToast('Kopieren
-                    fehlgeschlagen', 'error' ); } document.body.removeChild(textArea); } function toggleVisibility(id) {
-                    const el=document.getElementById(id); el.type=el.type==='password' ? 'text' : 'password' ; }
-                    function toggleCardPassVisibility(id) { const input=document.getElementById(`pass-display-${id}`);
-                    const icon=document.getElementById(`eye-icon-${id}`); if (input.type==='password' ) {
-                    input.type='text' ; icon.classList.remove('fa-eye'); icon.classList.add('fa-eye-slash'); } else {
-                    input.type='password' ; icon.classList.remove('fa-eye-slash'); icon.classList.add('fa-eye'); } }
-                    function showToast(message, type='success' ) { const toast=document.getElementById('toast'); const
-                    msg=document.getElementById('toast-message'); msg.textContent=message; if (type==='error' ) {
-                    toast.classList.remove('border-gold'); toast.classList.add('border-red-600'); } else {
-                    toast.classList.add('border-gold'); toast.classList.remove('border-red-600'); }
-                    toast.classList.remove('translate-x-full'); setTimeout(()=> {
-                    toast.classList.add('translate-x-full');
-                    }, 3000);
-                    }
+                                document.body.appendChild(textArea); textArea.select(); try {
+                                document.execCommand('copy'); showToast('In die Zwischenablage kopiert!'); } catch (err)
+                                { showToast('Kopieren fehlgeschlagen', 'error' ); } document.body.removeChild(textArea);
+                                } function toggleVisibility(id) { const el=document.getElementById(id);
+                                el.type=el.type==='password' ? 'text' : 'password' ; } function
+                                toggleCardPassVisibility(id) { const
+                                input=document.getElementById(`pass-display-${id}`); const
+                                icon=document.getElementById(`eye-icon-${id}`); if (input.type==='password' ) {
+                                input.type='text' ; icon.classList.remove('fa-eye'); icon.classList.add('fa-eye-slash');
+                                } else { input.type='password' ; icon.classList.remove('fa-eye-slash');
+                                icon.classList.add('fa-eye'); } } function showToast(message, type='success' ) { const
+                                toast=document.getElementById('toast'); const
+                                msg=document.getElementById('toast-message'); msg.textContent=message; if
+                                (type==='error' ) { toast.classList.remove('border-gold');
+                                toast.classList.add('border-red-600'); } else { toast.classList.add('border-gold');
+                                toast.classList.remove('border-red-600'); } toast.classList.remove('translate-x-full');
+                                setTimeout(()=> {
+                                toast.classList.add('translate-x-full');
+                                }, 3000);
+                                }
 
-                    </script>
-</body>
+                                </script>
+                </body>
 
-</html>
+                </html>
