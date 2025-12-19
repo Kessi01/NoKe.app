@@ -18,9 +18,15 @@ module.exports = async function (context, req) {
         if (!entry.id) entry.id = Math.random().toString(36).substring(2, 15);
 
         entry.type = 'entry';
-        // FIX 2: Konsistente Benennung sicherstellen.
-        // Wenn dein Frontend "user" sendet, mapping auf "username" für die DB
-        entry.username = entry.user || entry.username;
+        entry.type = 'entry';
+
+        // FIX 2: Partition Key (username) muss der Owner sein.
+        // Das Frontend sendet "user" als Owner.
+        if (entry.user) {
+            entry.username = entry.user;
+            delete entry.user; // Cleanup
+        }
+        // entry.loginName wird unverändert gespeichert (das ist der Account-Benutzername)
 
         // ENCRYPTION
         if (entry.password) {
