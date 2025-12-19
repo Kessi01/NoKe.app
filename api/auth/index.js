@@ -4,6 +4,11 @@ global.crypto = crypto;
 const { container } = require('../db');
 const bcrypt = require('bcryptjs');
 const { encrypt, decrypt } = require('../shared/crypto');
+const { authenticator } = require('otplib');
+const QRCode = require('qrcode');
+
+// App name for authenticator apps
+const APP_NAME = 'NoKe';
 
 module.exports = async function (context, req) {
     try {
@@ -11,7 +16,7 @@ module.exports = async function (context, req) {
             throw new Error("Request Body ist leer.");
         }
 
-        const { action, username, password, phoneNumber, code } = req.body;
+        const { action, username, password, code } = req.body;
 
         if (!container) {
             throw new Error("Datenbankverbindung fehlgeschlagen.");
@@ -45,18 +50,13 @@ module.exports = async function (context, req) {
             // Passwort wird mit bcrypt gehasht (Salt-Runden: 10)
             const hashedPassword = await bcrypt.hash(password, 10);
 
-            // Telefonnummer verschlüsseln
-            let encryptedPhone = null;
-            if (phoneNumber) {
-                encryptedPhone = encrypt(phoneNumber);
-            }
-
-            // User-Dokument wird in Cosmos DB erstellt
+            // User-Dokument wird in Cosmos DB erstellt (ohne Telefonnummer)
             const newUserDoc = {
                 id: username + "_profile",
                 username,
-                password: hashedPassword, // Gehashtes Passwort wird hier gespeichert
-                encryptedPhone: encryptedPhone,
+                password: hashedPassword,
+                totpEnabled: false,
+                totpSecret: null,
                 type: "user",
                 createdAt: new Date().toISOString()
             };
@@ -81,26 +81,13 @@ module.exports = async function (context, req) {
                 return;
             }
 
-            // MFA CHECK
-            if (userDoc.encryptedPhone) {
-                // Generate 6-digit OTP
-                const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-                // Store OTP in user doc (simple approach)
-                userDoc.mfaCode = otp;
-                userDoc.mfaExpiry = Date.now() + 300000; // 5 minutes
-
-                await container.items.upsert(userDoc);
-
-                // MOCK SEND SMS
-                const decryptedPhone = decrypt(userDoc.encryptedPhone);
-                context.log.warn(`[MOCK SMS] Sending OTP ${otp} to ${decryptedPhone}`);
-
+            // MFA CHECK - if TOTP is enabled
+            if (userDoc.totpEnabled && userDoc.totpSecret) {
                 context.res = {
                     body: {
                         success: false,
                         mfaRequired: true,
-                        message: "Bitte OTP eingeben (siehe Konsole)"
+                        message: "Bitte 2FA-Code aus Ihrer Authenticator-App eingeben"
                     }
                 };
                 return;
@@ -108,7 +95,7 @@ module.exports = async function (context, req) {
 
             context.res = { body: { success: true, username } };
 
-            // VERIFY MFA
+            // VERIFY MFA (TOTP)
         } else if (action === 'verify-mfa') {
             if (!code) throw new Error("Code fehlt");
 
@@ -117,16 +104,97 @@ module.exports = async function (context, req) {
                 return;
             }
 
-            if (userDoc.mfaCode === code && userDoc.mfaExpiry > Date.now()) {
-                // Clear OTP
-                userDoc.mfaCode = null;
-                userDoc.mfaExpiry = null;
-                await container.items.upsert(userDoc);
+            if (!userDoc.totpEnabled || !userDoc.totpSecret) {
+                context.res = { body: { success: false, message: "2FA nicht aktiviert" } };
+                return;
+            }
 
+            // Decrypt the stored secret
+            const secret = decrypt(userDoc.totpSecret);
+
+            // Verify the TOTP code
+            const isValid = authenticator.verify({ token: code, secret });
+
+            if (isValid) {
                 context.res = { body: { success: true, username } };
             } else {
-                context.res = { body: { success: false, message: "Code ungültig oder abgelaufen" } };
+                context.res = { body: { success: false, message: "Ungültiger Code" } };
             }
+
+            // SETUP TOTP - Generate secret and QR code
+        } else if (action === 'setup-totp') {
+            if (!userDoc) {
+                context.res = { body: { success: false, message: "Benutzer nicht gefunden" } };
+                return;
+            }
+
+            // Generate a new secret
+            const secret = authenticator.generateSecret();
+
+            // Create the otpauth URL for QR code
+            const otpauthUrl = authenticator.keyuri(username, APP_NAME, secret);
+
+            // Generate QR code as data URL
+            const qrCodeDataUrl = await QRCode.toDataURL(otpauthUrl);
+
+            // Store encrypted secret temporarily (not enabled yet)
+            userDoc.totpSecretPending = encrypt(secret);
+            await container.items.upsert(userDoc);
+
+            context.res = {
+                body: {
+                    success: true,
+                    qrCode: qrCodeDataUrl,
+                    secret: secret, // Also provide secret for manual entry
+                    message: "Scannen Sie den QR-Code mit Ihrer Authenticator-App"
+                }
+            };
+
+            // ENABLE TOTP - Verify first code and enable
+        } else if (action === 'enable-totp') {
+            if (!code) throw new Error("Code fehlt");
+
+            if (!userDoc) {
+                context.res = { body: { success: false, message: "Benutzer nicht gefunden" } };
+                return;
+            }
+
+            if (!userDoc.totpSecretPending) {
+                context.res = { body: { success: false, message: "Bitte zuerst QR-Code generieren" } };
+                return;
+            }
+
+            // Decrypt the pending secret
+            const secret = decrypt(userDoc.totpSecretPending);
+
+            // Verify the code
+            const isValid = authenticator.verify({ token: code, secret });
+
+            if (isValid) {
+                // Enable TOTP
+                userDoc.totpSecret = userDoc.totpSecretPending;
+                userDoc.totpEnabled = true;
+                delete userDoc.totpSecretPending;
+                await container.items.upsert(userDoc);
+
+                context.res = { body: { success: true, message: "2FA erfolgreich aktiviert!" } };
+            } else {
+                context.res = { body: { success: false, message: "Ungültiger Code - bitte erneut versuchen" } };
+            }
+
+            // DISABLE TOTP
+        } else if (action === 'disable-totp') {
+            if (!userDoc) {
+                context.res = { body: { success: false, message: "Benutzer nicht gefunden" } };
+                return;
+            }
+
+            userDoc.totpEnabled = false;
+            userDoc.totpSecret = null;
+            delete userDoc.totpSecretPending;
+            await container.items.upsert(userDoc);
+
+            context.res = { body: { success: true, message: "2FA deaktiviert" } };
 
         } else {
             context.res = { status: 400, body: { success: false, message: "Ungültige Action" } };

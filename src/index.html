@@ -152,12 +152,6 @@
                     <input type="password" id="reg-pass-confirm" class="input-field w-full p-3 rounded"
                         placeholder="Passwort wiederholen" required>
                 </div>
-                <div>
-                    <label class="block text-xs text-gold uppercase tracking-widest mb-1">Telefonnummer (für
-                        MFA)</label>
-                    <input type="tel" id="reg-phone" class="input-field w-full p-3 rounded"
-                        placeholder="+41 79 123 45 67" required>
-                </div>
                 <button type="submit" class="btn-gold w-full py-3 rounded mt-4">Konto erstellen</button>
                 <p class="text-center text-sm text-gray-400 mt-4">
                     Bereits registriert? <a href="#" onclick="toggleAuth('login')"
@@ -170,9 +164,9 @@
     <!-- MFA MODAL -->
     <div id="mfa-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black bg-opacity-90">
         <div class="bg-darkgray p-8 rounded-xl shadow-2xl border border-gray-800 w-full max-w-sm">
-            <h2 class="text-2xl font-bold text-gold mb-4 text-center">MFA Verifizierung</h2>
-            <p class="text-gray-400 text-sm mb-6 text-center">Bitte geben Sie den Code ein, der an Ihre Nummer gesendet
-                wurde.</p>
+            <h2 class="text-2xl font-bold text-gold mb-4 text-center">2FA Verifizierung</h2>
+            <p class="text-gray-400 text-sm mb-6 text-center">Bitte geben Sie den 6-stelligen Code aus Ihrer
+                Authenticator-App ein.</p>
             <form id="mfa-form" class="space-y-4">
                 <input type="text" id="mfa-code"
                     class="input-field w-full p-3 rounded text-center text-2xl tracking-widest" placeholder="123456"
@@ -181,6 +175,39 @@
                 <button type="button" onclick="cancelMfa()"
                     class="text-gray-500 text-sm w-full mt-2 hover:text-white">Abbrechen</button>
             </form>
+        </div>
+    </div>
+
+    <!-- TOTP SETUP MODAL -->
+    <div id="totp-setup-modal"
+        class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black bg-opacity-90">
+        <div class="bg-darkgray p-8 rounded-xl shadow-2xl border border-gray-800 w-full max-w-md">
+            <h2 class="text-2xl font-bold text-gold mb-4 text-center">2FA einrichten</h2>
+            <div id="totp-setup-step1">
+                <p class="text-gray-400 text-sm mb-6 text-center">Scannen Sie den QR-Code mit Ihrer Authenticator-App
+                    (Google Authenticator, Authy, etc.)</p>
+                <div id="qr-code-container" class="flex justify-center mb-6">
+                    <div class="bg-white p-4 rounded-lg">
+                        <img id="qr-code-image" src="" alt="QR Code" class="w-48 h-48">
+                    </div>
+                </div>
+                <p class="text-gray-500 text-xs text-center mb-4">Oder manuell eingeben:</p>
+                <div class="bg-black p-3 rounded border border-gray-800 mb-6">
+                    <code id="totp-secret-display" class="text-gold text-sm break-all"></code>
+                </div>
+                <button onclick="showTotpVerifyStep()" class="btn-gold w-full py-3 rounded">Weiter</button>
+            </div>
+            <div id="totp-setup-step2" class="hidden">
+                <p class="text-gray-400 text-sm mb-6 text-center">Geben Sie den aktuellen Code aus Ihrer App ein:</p>
+                <form id="totp-verify-form" class="space-y-4">
+                    <input type="text" id="totp-verify-code"
+                        class="input-field w-full p-3 rounded text-center text-2xl tracking-widest" placeholder="123456"
+                        required maxlength="6">
+                    <button type="submit" class="btn-gold w-full py-3 rounded">2FA aktivieren</button>
+                </form>
+            </div>
+            <button type="button" onclick="closeTotpSetup()"
+                class="text-gray-500 text-sm w-full mt-4 hover:text-white">Abbrechen</button>
         </div>
     </div>
 
@@ -200,7 +227,11 @@
                 </div>
                 <div class="overflow-hidden">
                     <p id="current-username-display" class="text-sm font-bold truncate">User</p>
-                    <button onclick="logout()" class="text-xs text-gray-500 hover:text-white">Abmelden</button>
+                    <div class="flex space-x-2">
+                        <button onclick="openTotpSetup()" class="text-xs text-gold hover:underline"
+                            title="2FA einrichten"><i class="fas fa-shield-alt"></i></button>
+                        <button onclick="logout()" class="text-xs text-gray-500 hover:text-white">Abmelden</button>
+                    </div>
                 </div>
             </div>
 
@@ -481,7 +512,7 @@
             const user = document.getElementById('reg-user').value;
             const pass = document.getElementById('reg-pass').value;
             const passConfirm = document.getElementById('reg-pass-confirm').value;
-            const phone = document.getElementById('reg-phone').value;
+
 
             if (pass !== passConfirm) {
                 showToast('Passwörter stimmen nicht überein!', 'error');
@@ -491,8 +522,7 @@
             const result = await apiRequest('auth', 'POST', {
                 action: 'register',
                 username: user,
-                password: pass,
-                phoneNumber: phone
+                password: pass
             });
 
             if (result && result.success) {
@@ -629,204 +659,9 @@
             }
         }
 
-        function createCardHTML(entry) {
-            let urlHtml = '';
-            if (entry.url && entry.url.trim() !== '') {
-                let safeUrl = entry.url.startsWith('http') ? entry.url : 'https://' + entry.url;
-                let hostname = safeUrl;
-                try { hostname = new URL(safeUrl).hostname; } catch (e) { }
-                urlHtml = `<a href="${safeUrl}" target="_blank" class="text-xs text-gold hover:underline truncate block max-w-[150px]">${hostname}</a>`;
-            }
-
-            return `
-                <div class="bg-darkgray rounded-xl p-5 border border-gray-800 hover:border-gold transition-colors group relative shadow-lg">
-                    <div class="flex justify-between items-start mb-4">
-                        <div class="flex items-center">
-                            <div class="w-10 h-10 rounded bg-black flex items-center justify-center text-gold border border-gray-800 mr-3 text-lg">
-                                ${entry.name.charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                                <h3 class="font-bold text-white text-lg leading-tight">${entry.name}</h3>
-                                ${urlHtml}
-                            </div>
-                        </div>
-                        <div class="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onclick="editEntry('${entry.id}')" class="w-8 h-8 rounded-full bg-gray-800 hover:bg-black text-gray-300 hover:text-gold flex items-center justify-center" title="Bearbeiten">
-                                <i class="fas fa-pen text-xs"></i>
-                            </button>
-                            <button onclick="initiateDeleteEntry('${entry.id}')" class="w-8 h-8 rounded-full bg-gray-800 hover:bg-red-900 text-gray-300 hover:text-red-500 flex items-center justify-center" title="Löschen">
-                                <i class="fas fa-trash text-xs"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="space-y-3">
-                        <div class="bg-black p-2 rounded border border-gray-800 flex justify-between items-center">
-                            <div class="flex items-center overflow-hidden">
-                                <i class="fas fa-user text-gray-600 text-xs w-5"></i>
-                                <span class="text-sm text-gray-300 truncate ml-1">${entry.loginName || ''}</span>
-                            </div>
-                            <button onclick="copyToClipboard('${entry.loginName || ''}')" class="text-gray-500 hover:text-gold px-2">
-                                <i class="far fa-copy"></i>
-                            </button>
-                        </div>
-
-                        <div class="bg-black p-2 rounded border border-gray-800 flex justify-between items-center">
-                            <div class="flex items-center overflow-hidden">
-                                <i class="fas fa-key text-gray-600 text-xs w-5"></i>
-                                <input type="password" value="${entry.password}" class="bg-transparent border-none text-sm text-gray-300 w-full focus:outline-none" readonly id="pass-display-${entry.id}">
-                            </div>
-                            <div class="flex items-center">
-                                <button onclick="toggleCardPassVisibility('${entry.id}')" class="text-gray-500 hover:text-white px-2">
-                                    <i class="far fa-eye" id="eye-icon-${entry.id}"></i>
-                                </button>
-                                <button onclick="copyToClipboard('${entry.password}')" class="text-gray-500 hover:text-gold px-2">
-                                    <i class="far fa-copy"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        document.getElementById('search-input').addEventListener('input', renderPasswords);
-
-        // MODALS
-        function openPasswordModal() {
-            document.getElementById('password-form').reset();
-            document.getElementById('entry-id').value = '';
-            document.getElementById('modal-title').textContent = 'Neues Passwort erstellen';
-            document.getElementById('entry-password').type = 'text';
-            document.getElementById('entry-username').value = '';
-            checkStrength('');
-            document.getElementById('password-modal').classList.remove('hidden');
-        }
-
-        function openFolderModal() {
-            document.getElementById('folder-modal').classList.remove('hidden');
-        }
-
-        function closeModal(modalId) {
-            document.getElementById(modalId).classList.add('hidden');
-            if (modalId === 'delete-modal') deleteTarget = null;
-        }
-
-        function editEntry(id) {
-            const entry = entriesData.find(e => e.id === id);
-            if (!entry) return;
-
-            document.getElementById('entry-id').value = entry.id;
-            document.getElementById('entry-name').value = entry.name;
-            document.getElementById('entry-folder').value = entry.folder;
-            document.getElementById('entry-url').value = entry.url;
-            document.getElementById('entry-username').value = entry.loginName || '';
-            document.getElementById('entry-password').value = entry.password;
-            document.getElementById('entry-password-confirm').value = entry.password;
-
-            checkStrength(entry.password);
-            document.getElementById('modal-title').textContent = 'Passwort bearbeiten';
-            document.getElementById('password-modal').classList.remove('hidden');
-        }
-
-        document.getElementById('password-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const id = document.getElementById('entry-id').value;
-            const name = document.getElementById('entry-name').value;
-            const folder = document.getElementById('entry-folder').value;
-            const url = document.getElementById('entry-url').value;
-            const username = document.getElementById('entry-username').value;
-            const pass = document.getElementById('entry-password').value;
-            const passConfirm = document.getElementById('entry-password-confirm').value;
-
-            if (pass !== passConfirm) {
-                showToast('Passwörter stimmen nicht überein!', 'error');
-                return;
-            }
-
-            const entryData = {
-                id: id || null,
-                user: currentUser,
-                name, folder, url, loginName: username, password: pass
-            };
-
-            const result = await apiRequest('entries', 'POST', entryData);
-
-            if (result && result.success) {
-                await loadApp();
-                closeModal('password-modal');
-                showToast('Passwort gespeichert');
-            }
-        });
-
-        function initiateDeleteEntry(id) {
-            deleteTarget = { type: 'entry', id: id };
-            document.getElementById('delete-modal-text').textContent = "Bist du sicher, dass du diesen Eintrag löschen möchtest?";
-            document.getElementById('delete-modal').classList.remove('hidden');
-        }
-
-        async function confirmDelete() {
-            if (!deleteTarget) {
-                closeModal('delete-modal');
-                return;
-            }
-
-            if (deleteTarget.type === 'folder') {
-                const result = await apiRequest('folders', 'DELETE', { username: currentUser, folderName: deleteTarget.id });
-                if (result && result.success) {
-                    if (currentFolder === deleteTarget.id) currentFolder = 'Alle';
-                    await loadApp();
-                    showToast('Ordner gelöscht');
-                }
-            } else if (deleteTarget.type === 'entry') {
-                const result = await apiRequest('entries', 'DELETE', { username: currentUser, id: deleteTarget.id });
-                if (result && result.success) {
-                    await loadApp();
-                    showToast('Eintrag gelöscht');
-                }
-            }
-            closeModal('delete-modal');
-        }
-
-        // UTILITIES
-        const slider = document.getElementById('pass-length');
-        const sliderVal = document.getElementById('slider-val');
-        slider.oninput = function () { sliderVal.textContent = this.value; }
-
-        function generatePassword() {
-            const length = parseInt(slider.value);
-            const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+~`|}{[]:;?><,./-=";
-            let retVal = "";
-            for (let i = 0, n = charset.length; i < length; ++i) retVal += charset.charAt(Math.floor(Math.random() * n));
-            document.getElementById('entry-password').value = retVal;
-            document.getElementById('entry-password-confirm').value = retVal;
-            checkStrength(retVal);
-        }
-
-        function checkStrength(password) {
-            const meter = document.getElementById('strength-meter');
-            const text = document.getElementById('strength-text');
-            let strength = 0;
-            if (password.length > 0) strength += 1;
-            if (password.length > 8) strength += 1;
-            if (/[A-Z]/.test(password)) strength += 1;
-            if (/[0-9]/.test(password)) strength += 1;
-            if (/[^A-Za-z0-9]/.test(password)) strength += 1;
-
-            let color = 'bg-red-500';
-            let status = 'Sehr Schwach';
-            let width = '10%';
-            switch (strength) {
-                case 1: width = '20%'; break;
-                case 2: width = '40%'; color = 'bg-orange-500'; status = 'Schwach'; break;
-                case 3: width = '60%'; color = 'bg-yellow-500'; status = 'Mittel'; break;
-                case 4: width = '80%'; color = 'bg-blue-500'; status = 'Gut'; break;
-                case 5: width = '100%'; color = 'bg-green-500'; status = 'Sehr Stark'; break;
-            }
-            if (password.length === 0) { width = '0%'; status = 'Leer'; }
-            meter.className = `h-full strength-bar ${color}`;
-            meter.style.width = width;
-            text.textContent = `Stärke: ${status}`;
+        meter.className = `h-full strength-bar ${color}`;
+        meter.style.width = width;
+        text.textContent = `Stärke: ${status}`;
         }
 
         function copyToClipboard(text) {
@@ -867,6 +702,41 @@
             toast.classList.remove('translate-x-full');
             setTimeout(() => { toast.classList.add('translate-x-full'); }, 3000);
         }
+
+        // TOTP 2FA Functions
+        async function openTotpSetup() {
+            const result = await apiRequest('auth', 'POST', { action: 'setup-totp', username: currentUser });
+            if (result && result.success) {
+                document.getElementById('qr-code-image').src = result.qrCode;
+                document.getElementById('totp-secret-display').textContent = result.secret;
+                document.getElementById('totp-setup-step1').classList.remove('hidden');
+                document.getElementById('totp-setup-step2').classList.add('hidden');
+                document.getElementById('totp-setup-modal').classList.remove('hidden');
+            } else {
+                showToast(result?.message || '2FA Setup fehlgeschlagen', 'error');
+            }
+        }
+
+        function showTotpVerifyStep() {
+            document.getElementById('totp-setup-step1').classList.add('hidden');
+            document.getElementById('totp-setup-step2').classList.remove('hidden');
+        }
+
+        function closeTotpSetup() {
+            document.getElementById('totp-setup-modal').classList.add('hidden');
+        }
+
+        document.getElementById('totp-verify-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const code = document.getElementById('totp-verify-code').value;
+            const result = await apiRequest('auth', 'POST', { action: 'enable-totp', username: currentUser, code: code });
+            if (result && result.success) {
+                showToast('2FA erfolgreich aktiviert!');
+                closeTotpSetup();
+            } else {
+                showToast(result?.message || 'Code ungültig', 'error');
+            }
+        });
     </script>
 </body>
 
