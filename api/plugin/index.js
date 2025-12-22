@@ -69,8 +69,8 @@ async function validateToken(req) {
  * Authentication: x-api-key header or Authorization: Bearer
  * 
  * Actions:
- * - GET /api/plugin/entries - Get all password entries for autofill
- * - GET /api/plugin/search?url=... - Search entries by URL
+ * - GET/POST /api/plugin/entries - Get all password entries for autofill
+ * - GET/POST /api/plugin/search?url=... - Search entries by URL
  * - POST /api/plugin/generate - Generate a random password
  */
 module.exports = async function (context, req) {
@@ -89,8 +89,8 @@ module.exports = async function (context, req) {
 
         const username = authResult.username;
 
-        // GET /api/plugin/entries - Get all entries
-        if (action === 'entries' && req.method === 'GET') {
+        // GET/POST /api/plugin/entries - Get all entries
+        if (action === 'entries') {
             const querySpec = {
                 query: "SELECT * FROM c WHERE c.username = @username AND c.type = 'entry'",
                 parameters: [{ name: "@username", value: username }]
@@ -99,10 +99,11 @@ module.exports = async function (context, req) {
             const { resources } = await container.items.query(querySpec).fetchAll();
             
             // Decrypt passwords and format for plugin
+            // Fields: name (entry name), loginUsername (login username), username (owner/partition key)
             const entries = resources.map(entry => ({
                 id: entry.id,
-                title: entry.title,
-                username: entry.entryUsername || entry.user,
+                name: entry.name || entry.title || 'Unbenannt',
+                loginUsername: entry.loginUsername || entry.loginName || '',
                 password: entry.password ? decrypt(entry.password) : '',
                 url: entry.url || '',
                 notes: entry.notes || '',
@@ -115,9 +116,9 @@ module.exports = async function (context, req) {
             return;
         }
 
-        // GET /api/plugin/search?url=... - Search by URL
-        if (action === 'search' && req.method === 'GET') {
-            const searchUrl = req.query.url;
+        // GET/POST /api/plugin/search?url=... - Search by URL
+        if (action === 'search') {
+            const searchUrl = req.query.url || (req.body && req.body.url);
             
             if (!searchUrl) {
                 context.res = {
@@ -156,10 +157,12 @@ module.exports = async function (context, req) {
 
             const entries = matchingEntries.map(entry => ({
                 id: entry.id,
-                title: entry.title,
-                username: entry.entryUsername || entry.user,
+                name: entry.name || entry.title || 'Unbenannt',
+                loginUsername: entry.loginUsername || entry.loginName || '',
                 password: entry.password ? decrypt(entry.password) : '',
-                url: entry.url || ''
+                url: entry.url || '',
+                notes: entry.notes || '',
+                folder: entry.folder || null
             }));
 
             context.res = {
@@ -169,7 +172,7 @@ module.exports = async function (context, req) {
         }
 
         // POST /api/plugin/generate - Generate password
-        if (action === 'generate' && req.method === 'POST') {
+        if (action === 'generate') {
             const { length = 16, uppercase = true, lowercase = true, numbers = true, symbols = true } = req.body || {};
 
             let chars = '';
@@ -200,7 +203,7 @@ module.exports = async function (context, req) {
 
         context.res = {
             status: 404,
-            body: { success: false, message: "Aktion nicht gefunden" }
+            body: { success: false, message: "Aktion nicht gefunden: " + action }
         };
 
     } catch (error) {

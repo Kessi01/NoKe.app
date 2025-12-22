@@ -18,15 +18,17 @@ module.exports = async function (context, req) {
         if (!entry.id) entry.id = Math.random().toString(36).substring(2, 15);
 
         entry.type = 'entry';
-        entry.type = 'entry';
 
         // FIX 2: Partition Key (username) muss der Owner sein.
-        // Das Frontend sendet "user" als Owner.
+        // Das Frontend sendet "user" als Owner und "username" als Login-Username.
+        // Wir speichern den Login-Username als "loginUsername" bevor wir username überschreiben.
+        if (entry.username && entry.user) {
+            entry.loginUsername = entry.username;  // Login-Username des Eintrags
+        }
         if (entry.user) {
-            entry.username = entry.user;
+            entry.username = entry.user;  // Owner (Partition Key)
             delete entry.user; // Cleanup
         }
-        // entry.loginName wird unverändert gespeichert (das ist der Account-Benutzername)
 
         // ENCRYPTION
         if (entry.password) {

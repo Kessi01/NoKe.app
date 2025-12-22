@@ -1465,7 +1465,8 @@
                     document.getElementById('entry-id').value = entry.id;
                     document.getElementById('entry-name').value = entry.name || '';
                     document.getElementById('entry-url').value = entry.url || '';
-                    document.getElementById('entry-username').value = entry.username || '';
+                    // loginUsername is the actual login username, username is the owner
+                    document.getElementById('entry-username').value = entry.loginUsername || entry.username || '';
                     document.getElementById('entry-password').value = entry.password || '';
                     document.getElementById('entry-folder').value = entry.folder || 'Alle';
                     document.getElementById('entry-notes').value = entry.notes || '';
@@ -1625,8 +1626,8 @@
                         <div class="flex justify-between items-center">
                             <span class="text-gray-500">Benutzer:</span>
                             <div class="flex items-center gap-2">
-                                <span class="text-white">${entry.username || '-'}</span>
-                                <button onclick="copyToClipboard('${entry.username}')" class="text-gray-500 hover:text-gold"><i class="far fa-copy"></i></button>
+                                <span class="text-white">${entry.loginUsername || entry.username || '-'}</span>
+                                <button onclick="copyToClipboard('${entry.loginUsername || entry.username || ''}')" class="text-gray-500 hover:text-gold"><i class="far fa-copy"></i></button>
                             </div>
                         </div>
                         <div class="flex justify-between items-center">
