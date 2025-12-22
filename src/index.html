@@ -703,19 +703,19 @@
         // ==========================================
 
         async function loadFolders() {
-            const result = await apiRequest(`folders?username=${encodeURIComponent(currentUser)}`, 'GET');
-            if (result && result.folders) {
-                foldersData = result.folders;
+            // Use the /data endpoint which returns both folders and entries
+            const result = await apiRequest(`data?username=${encodeURIComponent(currentUser)}`, 'GET');
+            if (result) {
+                foldersData = result.folders || [];
+                entriesData = result.entries || [];
                 renderFolders();
+                renderPasswords();
             }
         }
 
         async function loadEntries() {
-            const result = await apiRequest(`entries?username=${encodeURIComponent(currentUser)}`, 'GET');
-            if (result && result.entries) {
-                entriesData = result.entries;
-                renderPasswords();
-            }
+            // Data is already loaded by loadFolders, just re-render
+            renderPasswords();
         }
 
         // ==========================================
@@ -871,15 +871,30 @@
             `;
         }
 
-        // Event Listeners for Forms
-        document.getElementById('folder-form').addEventListener('submit', createFolder);
-        document.getElementById('password-form').addEventListener('submit', savePassword);
-        document.getElementById('confirm-delete-btn').addEventListener('click', confirmDelete);
-        document.getElementById('search-input').addEventListener('input', renderPasswords);
+        // Event Listeners for Forms - wrapped to handle missing elements gracefully
+        function setupEventListeners() {
+            const folderForm = document.getElementById('folder-form');
+            const passwordForm = document.getElementById('password-form');
+            const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+            const searchInput = document.getElementById('search-input');
+            
+            if (folderForm) folderForm.addEventListener('submit', createFolder);
+            if (passwordForm) passwordForm.addEventListener('submit', savePassword);
+            if (confirmDeleteBtn) confirmDeleteBtn.addEventListener('click', confirmDelete);
+            if (searchInput) searchInput.addEventListener('input', renderPasswords);
+        }
+        
+        // Setup event listeners after DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', setupEventListeners);
+        } else {
+            setupEventListeners();
+        }
 
         // PASSWORDS
         function renderPasswords() {
-            const searchTerm = document.getElementById('search-input').value.toLowerCase();
+            const searchInput = document.getElementById('search-input');
+            const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
             const filtered = entriesData.filter(entry => {
                 const isFolder = currentFolder === 'Alle' || entry.folder === currentFolder;
                 const isSearch = (entry.name || '').toLowerCase().includes(searchTerm) ||
