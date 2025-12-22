@@ -252,8 +252,8 @@ module.exports = async function (context, req) {
 
             context.res = { body: { success: true, message: "2FA deaktiviert" } };
 
-        // GET-SETTINGS - Get user settings/profile
-        } else if (action === 'get-settings') {
+        // GET-PROFILE - Get user profile/settings
+        } else if (action === 'get-profile' || action === 'get-settings') {
             if (!userDoc) {
                 context.res = { body: { success: false, message: "Benutzer nicht gefunden" } };
                 return;
@@ -262,34 +262,45 @@ module.exports = async function (context, req) {
             context.res = {
                 body: {
                     success: true,
-                    settings: {
+                    profile: {
+                        firstName: userDoc.firstName || '',
+                        lastName: userDoc.lastName || '',
                         displayName: userDoc.displayName || userDoc.name || '',
                         email: userDoc.email || userDoc.username,
+                        company: userDoc.company || '',
+                        phone: userDoc.phone || '',
                         picture: userDoc.picture || null,
                         theme: userDoc.theme || 'dark',
                         language: userDoc.language || 'de',
-                        totpEnabled: userDoc.totpEnabled || false
+                        totpEnabled: userDoc.totpEnabled || false,
+                        auth0Id: userDoc.auth0Id || null,
+                        createdAt: userDoc.createdAt || null,
+                        lastLogin: userDoc.lastLogin || null
                     }
                 }
             };
 
-        // SAVE-SETTINGS - Save user settings/profile
-        } else if (action === 'save-settings') {
+        // UPDATE-PROFILE - Save user profile/settings
+        } else if (action === 'update-profile' || action === 'save-settings') {
             if (!userDoc) {
                 context.res = { body: { success: false, message: "Benutzer nicht gefunden" } };
                 return;
             }
 
-            const { displayName, theme, language } = req.body;
+            const { firstName, lastName, displayName, company, phone, theme, language } = req.body;
 
-            userDoc.displayName = displayName || userDoc.displayName;
-            userDoc.theme = theme || userDoc.theme;
-            userDoc.language = language || userDoc.language;
+            if (firstName !== undefined) userDoc.firstName = firstName;
+            if (lastName !== undefined) userDoc.lastName = lastName;
+            if (displayName !== undefined) userDoc.displayName = displayName;
+            if (company !== undefined) userDoc.company = company;
+            if (phone !== undefined) userDoc.phone = phone;
+            if (theme !== undefined) userDoc.theme = theme;
+            if (language !== undefined) userDoc.language = language;
             userDoc.updatedAt = new Date().toISOString();
 
             await container.items.upsert(userDoc);
 
-            context.res = { body: { success: true, message: "Einstellungen gespeichert" } };
+            context.res = { body: { success: true, message: "Profil gespeichert" } };
 
         // LIST-TOKENS - List all API tokens for user
         } else if (action === 'list-tokens') {
