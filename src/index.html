@@ -722,9 +722,42 @@
             }
         }
 
-        meter.className = `h-full strength-bar ${color}`;
-        meter.style.width = width;
-        text.textContent = `Stärke: ${status}`;
+        function updatePasswordStrength(password) {
+            const meter = document.getElementById('strength-meter');
+            const text = document.getElementById('strength-text');
+            
+            let score = 0;
+            if (password.length >= 8) score++;
+            if (password.length >= 12) score++;
+            if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score++;
+            if (/\d/.test(password)) score++;
+            if (/[^a-zA-Z0-9]/.test(password)) score++;
+
+            let width, color, status;
+            switch (score) {
+                case 0:
+                case 1:
+                    width = '20%'; color = 'bg-red-500'; status = 'Sehr schwach';
+                    break;
+                case 2:
+                    width = '40%'; color = 'bg-orange-500'; status = 'Schwach';
+                    break;
+                case 3:
+                    width = '60%'; color = 'bg-yellow-500'; status = 'Mittel';
+                    break;
+                case 4:
+                    width = '80%'; color = 'bg-blue-500'; status = 'Stark';
+                    break;
+                case 5:
+                    width = '100%'; color = 'bg-green-500'; status = 'Sehr stark';
+                    break;
+                default:
+                    width = '0%'; color = 'bg-gray-500'; status = '';
+            }
+
+            meter.className = `h-full strength-bar ${color}`;
+            meter.style.width = width;
+            text.textContent = `Stärke: ${status}`;
         }
 
         function copyToClipboard(text) {
