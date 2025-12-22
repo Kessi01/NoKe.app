@@ -6,7 +6,74 @@ Diese Dokumentation beschreibt die API-Schnittstellen für die Entwicklung eines
 
 ## Authentifizierung
 
-### API-Token generieren
+### Option 1: Automatischer Plugin-Autorisierungs-Flow (Empfohlen)
+
+Das Plugin kann den Benutzer automatisch zur Web-App weiterleiten, wo ein Token erstellt und automatisch ans Plugin zurückübertragen wird.
+
+#### Flow-Ablauf:
+
+1. **Plugin öffnet Autorisierungs-URL:**
+```javascript
+const authUrl = new URL('https://noke-app.azurewebsites.net');
+authUrl.searchParams.set('plugin_auth', 'true');
+authUrl.searchParams.set('plugin_name', 'NoKe Chrome Extension');
+authUrl.searchParams.set('plugin_state', crypto.randomUUID()); // CSRF-Schutz
+// Optional: Redirect-URI für Extension-Protokoll
+authUrl.searchParams.set('redirect_uri', chrome.runtime.getURL('callback.html'));
+
+// Öffne Popup-Fenster
+const popup = window.open(authUrl, 'NoKe Authorization', 'width=500,height=700');
+```
+
+2. **Web-App erkennt Plugin-Anfrage:**
+   - Falls nicht eingeloggt → Auth0 Login
+   - Nach Login → Automatische Weiterleitung zur Token-Erstellung
+   - Token-Name ist vorausgefüllt mit dem Plugin-Namen
+
+3. **Benutzer erstellt Token in der Web-App:**
+   - Sieht speziellen Banner "Plugin-Autorisierung"
+   - Bestätigt Berechtigungen
+   - Klickt "Token erstellen"
+
+4. **Token wird an Plugin übertragen:**
+   - Via `postMessage` (wenn Popup) oder
+   - Via Redirect-URI (für Extension-Protokolle)
+
+#### Token empfangen im Plugin:
+
+```javascript
+// Option A: Via postMessage (Popup-Fenster)
+window.addEventListener('message', async (event) => {
+    // Sicherheitsprüfung
+    if (!event.origin.includes('noke-app.azurewebsites.net')) return;
+    
+    if (event.data.type === 'NOKE_TOKEN_RESPONSE' && event.data.success) {
+        const token = event.data.token;
+        const state = event.data.state;
+        
+        // State validieren (CSRF-Schutz)
+        if (state === savedState) {
+            await chrome.storage.local.set({ apiToken: token });
+            console.log('Token erfolgreich gespeichert!');
+        }
+    }
+});
+
+// Option B: Via Callback-Seite (callback.html)
+// Die Web-App leitet zu: chrome-extension://xxx/callback.html?token=xxx&state=xxx
+const params = new URLSearchParams(window.location.search);
+const token = params.get('token');
+const state = params.get('state');
+
+if (token && state === savedState) {
+    await chrome.storage.local.set({ apiToken: token });
+    window.close();
+}
+```
+
+---
+
+### Option 2: Manueller Token-Flow
 
 1. Benutzer loggt sich in die NoKe Web-App ein (Auth0)
 2. Navigiert zu **Connections** im Seitenmenü
@@ -14,6 +81,9 @@ Diese Dokumentation beschreibt die API-Schnittstellen für die Entwicklung eines
 4. Gibt einen Namen ein (z.B. "Chrome Plugin")
 5. Wählt die Gültigkeitsdauer (30 Tage, 90 Tage, 1 Jahr, Unbegrenzt)
 6. Das Token wird **einmalig** angezeigt und muss sofort kopiert werden
+7. Token wird manuell ins Plugin eingefügt
+
+---
 
 ### Token-Verwendung
 
@@ -286,10 +356,12 @@ noke-browser-plugin/
 
 ```javascript
 const API_BASE_URL = 'https://noke-app.azurewebsites.net/api';
+const AUTH_URL = 'https://noke-app.azurewebsites.net';
 
 class NoKeAPI {
     constructor() {
         this.token = null;
+        this.authState = null;
     }
 
     // Token aus Storage laden
@@ -319,6 +391,68 @@ class NoKeAPI {
                 this.token = null;
                 resolve();
             });
+        });
+    }
+
+    /**
+     * Start OAuth-like authorization flow
+     * Opens NoKe web app where user can create a token that's automatically returned
+     */
+    async authorize() {
+        return new Promise((resolve, reject) => {
+            // Generate state for CSRF protection
+            this.authState = crypto.randomUUID();
+            
+            // Build authorization URL
+            const authUrl = new URL(AUTH_URL);
+            authUrl.searchParams.set('plugin_auth', 'true');
+            authUrl.searchParams.set('plugin_name', 'NoKe Browser Extension');
+            authUrl.searchParams.set('plugin_state', this.authState);
+            
+            // Open popup window
+            const width = 500;
+            const height = 700;
+            const left = (screen.width - width) / 2;
+            const top = (screen.height - height) / 2;
+            
+            const popup = window.open(
+                authUrl.toString(),
+                'NoKe Authorization',
+                `width=${width},height=${height},left=${left},top=${top},scrollbars=yes`
+            );
+            
+            if (!popup) {
+                reject(new Error('Popup wurde blockiert. Bitte Popups erlauben.'));
+                return;
+            }
+            
+            // Listen for token response
+            const messageHandler = async (event) => {
+                // Security check
+                if (!event.origin.includes('noke-app.azurewebsites.net')) return;
+                
+                if (event.data.type === 'NOKE_TOKEN_RESPONSE') {
+                    window.removeEventListener('message', messageHandler);
+                    
+                    if (event.data.success && event.data.state === this.authState) {
+                        await this.saveToken(event.data.token);
+                        resolve({ success: true, token: event.data.token });
+                    } else {
+                        reject(new Error('Autorisierung fehlgeschlagen'));
+                    }
+                }
+            };
+            
+            window.addEventListener('message', messageHandler);
+            
+            // Check if popup was closed without completing
+            const checkClosed = setInterval(() => {
+                if (popup.closed) {
+                    clearInterval(checkClosed);
+                    window.removeEventListener('message', messageHandler);
+                    reject(new Error('Autorisierung abgebrochen'));
+                }
+            }, 1000);
         });
     }
 
@@ -404,10 +538,25 @@ const api = new NoKeAPI();
             <h1>NoKe</h1>
         </div>
         <p class="description">
-            Gib dein API-Token ein, das du in der NoKe Web-App generiert hast.
+            Verbinde das Plugin mit deinem NoKe-Konto.
         </p>
-        <input type="password" id="token-input" placeholder="API-Token einfügen">
-        <button id="login-btn" class="primary-btn">Verbinden</button>
+        
+        <!-- Primary: OAuth-like flow -->
+        <button id="authorize-btn" class="primary-btn">
+            🔐 Mit NoKe verbinden
+        </button>
+        
+        <div class="divider">
+            <span>oder</span>
+        </div>
+        
+        <!-- Fallback: Manual token input -->
+        <details class="manual-token">
+            <summary>Token manuell eingeben</summary>
+            <input type="password" id="token-input" placeholder="API-Token einfügen">
+            <button id="login-btn" class="secondary-btn" style="width:100%">Verbinden</button>
+        </details>
+        
         <p class="error" id="login-error"></p>
     </div>
 
@@ -589,6 +738,48 @@ input[type="password"]:focus {
     color: #fff;
 }
 
+/* Divider */
+.divider {
+    display: flex;
+    align-items: center;
+    margin: 16px 0;
+    color: #666;
+    font-size: 12px;
+}
+
+.divider::before,
+.divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #444;
+}
+
+.divider span {
+    padding: 0 12px;
+}
+
+/* Manual Token */
+.manual-token {
+    margin-top: 8px;
+}
+
+.manual-token summary {
+    color: #888;
+    font-size: 12px;
+    cursor: pointer;
+    text-align: center;
+    padding: 8px;
+}
+
+.manual-token summary:hover {
+    color: #C49C48;
+}
+
+.manual-token[open] summary {
+    margin-bottom: 12px;
+}
+
 /* Header */
 .header {
     display: flex;
@@ -748,6 +939,7 @@ input[type="password"]:focus {
 // DOM Elements
 const loginView = document.getElementById('login-view');
 const mainView = document.getElementById('main-view');
+const authorizeBtn = document.getElementById('authorize-btn');
 const tokenInput = document.getElementById('token-input');
 const loginBtn = document.getElementById('login-btn');
 const loginError = document.getElementById('login-error');
@@ -795,7 +987,29 @@ function showMainView(email) {
     userEmail.textContent = email;
 }
 
-// Login
+// OAuth-like Authorization (Primary method)
+authorizeBtn.addEventListener('click', async () => {
+    authorizeBtn.disabled = true;
+    authorizeBtn.textContent = 'Verbinde...';
+    loginError.textContent = '';
+
+    try {
+        const result = await api.authorize();
+        
+        if (result.success) {
+            const validation = await api.validateToken();
+            showMainView(validation.username);
+            await loadEntries();
+        }
+    } catch (error) {
+        loginError.textContent = error.message || 'Autorisierung fehlgeschlagen';
+    }
+
+    authorizeBtn.disabled = false;
+    authorizeBtn.textContent = '🔐 Mit NoKe verbinden';
+});
+
+// Manual Login (Fallback)
 loginBtn.addEventListener('click', async () => {
     const token = tokenInput.value.trim();
     

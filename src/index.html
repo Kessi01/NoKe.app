@@ -686,6 +686,9 @@
                     throw new Error('Bitte Auth0 Client ID konfigurieren (AUTH0_CONFIG.clientId)');
                 }
 
+                // Check for plugin authorization request BEFORE handling Auth0 callback
+                checkPluginAuthRequest();
+
                 // Create Auth0 client
                 auth0Client = await window.auth0.createAuth0Client({
                     domain: AUTH0_CONFIG.domain,
@@ -714,6 +717,10 @@
                     
                     await showMainApp();
                 } else {
+                    // If plugin auth request, store in sessionStorage and redirect to login
+                    if (pluginAuthState && pluginAuthState.active) {
+                        sessionStorage.setItem('pluginAuthState', JSON.stringify(pluginAuthState));
+                    }
                     showAuth0LoginState();
                 }
 
@@ -806,6 +813,137 @@
         }
 
         /**
+         * Plugin Authorization State
+         */
+        let pluginAuthState = null;
+
+        /**
+         * Check if this is a plugin authorization request
+         */
+        function checkPluginAuthRequest() {
+            // First check URL parameters (initial request from plugin)
+            const urlParams = new URLSearchParams(window.location.search);
+            const pluginAuth = urlParams.get('plugin_auth');
+            const pluginName = urlParams.get('plugin_name');
+            const redirectUri = urlParams.get('redirect_uri');
+            const state = urlParams.get('plugin_state');
+
+            if (pluginAuth === 'true') {
+                pluginAuthState = {
+                    active: true,
+                    pluginName: pluginName || 'Browser Plugin',
+                    redirectUri: redirectUri,
+                    state: state
+                };
+                // Store in sessionStorage in case Auth0 redirects
+                sessionStorage.setItem('pluginAuthState', JSON.stringify(pluginAuthState));
+                // Clean URL but keep state in memory
+                window.history.replaceState({}, document.title, window.location.pathname);
+                return true;
+            }
+
+            // Check sessionStorage (after Auth0 redirect)
+            const storedState = sessionStorage.getItem('pluginAuthState');
+            if (storedState) {
+                try {
+                    pluginAuthState = JSON.parse(storedState);
+                    return true;
+                } catch (e) {
+                    console.error('Error parsing plugin auth state:', e);
+                }
+            }
+
+            return false;
+        }
+
+        /**
+         * Open Plugin Authorization Modal
+         */
+        function openPluginAuthModal() {
+            // Pre-fill the token name with plugin name
+            document.getElementById('token-name').value = pluginAuthState.pluginName || 'Browser Plugin';
+            document.getElementById('token-perm-read').checked = true;
+            document.getElementById('token-perm-write').checked = false;
+            document.getElementById('token-perm-delete').checked = false;
+            
+            // Show plugin auth banner
+            const modal = document.getElementById('token-modal');
+            modal.classList.remove('hidden');
+            
+            // Add plugin auth info banner if not already added
+            if (!document.getElementById('plugin-auth-banner')) {
+                const form = document.getElementById('token-form');
+                const banner = document.createElement('div');
+                banner.id = 'plugin-auth-banner';
+                banner.className = 'bg-blue-900/30 border border-blue-700 rounded-lg p-4 mb-4';
+                banner.innerHTML = `
+                    <div class="flex items-start gap-3">
+                        <i class="fas fa-puzzle-piece text-blue-400 text-xl mt-0.5"></i>
+                        <div>
+                            <p class="text-blue-300 font-medium">Plugin-Autorisierung</p>
+                            <p class="text-blue-400/80 text-sm mt-1">
+                                Das Plugin <strong>${escapeHtml(pluginAuthState.pluginName)}</strong> möchte Zugriff auf Ihre Passwörter.
+                                Erstellen Sie einen Token, der automatisch an das Plugin übertragen wird.
+                            </p>
+                        </div>
+                    </div>
+                `;
+                form.insertBefore(banner, form.firstChild);
+            }
+        }
+
+        /**
+         * Clear Plugin Auth State
+         */
+        function clearPluginAuthState() {
+            pluginAuthState = null;
+            sessionStorage.removeItem('pluginAuthState');
+            const banner = document.getElementById('plugin-auth-banner');
+            if (banner) banner.remove();
+        }
+
+        /**
+         * Send Token to Plugin (via postMessage or redirect)
+         */
+        function sendTokenToPlugin(token) {
+            if (!pluginAuthState || !pluginAuthState.active) return;
+
+            // Method 1: postMessage (if opener exists - popup window)
+            if (window.opener) {
+                window.opener.postMessage({
+                    type: 'NOKE_TOKEN_RESPONSE',
+                    success: true,
+                    token: token,
+                    state: pluginAuthState.state
+                }, '*');
+                
+                showToast('Token an Plugin übertragen!');
+                setTimeout(() => window.close(), 2000);
+                clearPluginAuthState();
+                return;
+            }
+
+            // Method 2: Redirect URI (for extensions that can't use popup)
+            if (pluginAuthState.redirectUri) {
+                const redirectUrl = new URL(pluginAuthState.redirectUri);
+                redirectUrl.searchParams.set('token', token);
+                if (pluginAuthState.state) {
+                    redirectUrl.searchParams.set('state', pluginAuthState.state);
+                }
+                
+                showToast('Weiterleitung zum Plugin...');
+                setTimeout(() => {
+                    window.location.href = redirectUrl.toString();
+                }, 1000);
+                clearPluginAuthState();
+                return;
+            }
+
+            // Method 3: Display token for manual copy (fallback)
+            clearPluginAuthState();
+        }
+
+        /**
          * Show Main App after successful authentication
          */
         async function showMainApp() {
@@ -836,6 +974,17 @@
             await loadEntries();
             await loadUserSettings();
             await loadTokens();
+
+            // Check if this is a plugin authorization request
+            if (pluginAuthState && pluginAuthState.active) {
+                // Redirect to connections page and open token modal
+                showPage('connections');
+                
+                // Show plugin authorization modal instead of regular modal
+                setTimeout(() => {
+                    openPluginAuthModal();
+                }, 500);
+            }
         }
 
         // ==========================================
@@ -1032,9 +1181,27 @@
                 if (result && result.success && result.token) {
                     closeModal('token-modal');
                     
-                    // Show the generated token
-                    document.getElementById('generated-token').textContent = result.token;
-                    document.getElementById('token-display-modal').classList.remove('hidden');
+                    // Check if this is a plugin authorization
+                    if (pluginAuthState && pluginAuthState.active) {
+                        // Send token to plugin
+                        sendTokenToPlugin(result.token);
+                        
+                        // Show success modal with plugin-specific message
+                        document.getElementById('generated-token').textContent = result.token;
+                        const displayModal = document.getElementById('token-display-modal');
+                        displayModal.classList.remove('hidden');
+                        
+                        // Update modal message for plugin auth
+                        const successIcon = displayModal.querySelector('.fa-check');
+                        if (successIcon) {
+                            successIcon.classList.remove('fa-check');
+                            successIcon.classList.add('fa-puzzle-piece');
+                        }
+                    } else {
+                        // Show the generated token (normal flow)
+                        document.getElementById('generated-token').textContent = result.token;
+                        document.getElementById('token-display-modal').classList.remove('hidden');
+                    }
                     
                     // Reload tokens list
                     await loadTokens();
@@ -1383,6 +1550,16 @@
             
             closeModal('delete-modal');
             deleteTarget = null;
+        }
+
+        /**
+         * Escape HTML to prevent XSS
+         */
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
 
         function generatePassword() {
