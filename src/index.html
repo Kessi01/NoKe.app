@@ -698,6 +698,185 @@
             document.getElementById('delete-modal').classList.remove('hidden');
         }
 
+        // ==========================================
+        // LOAD DATA FUNCTIONS
+        // ==========================================
+
+        async function loadFolders() {
+            const result = await apiRequest(`folders?username=${encodeURIComponent(currentUser)}`, 'GET');
+            if (result && result.folders) {
+                foldersData = result.folders;
+                renderFolders();
+            }
+        }
+
+        async function loadEntries() {
+            const result = await apiRequest(`entries?username=${encodeURIComponent(currentUser)}`, 'GET');
+            if (result && result.entries) {
+                entriesData = result.entries;
+                renderPasswords();
+            }
+        }
+
+        // ==========================================
+        // MODAL FUNCTIONS
+        // ==========================================
+
+        function openFolderModal() {
+            document.getElementById('folder-modal').classList.remove('hidden');
+        }
+
+        function openPasswordModal(entryId = null) {
+            const modal = document.getElementById('password-modal');
+            const form = document.getElementById('password-form');
+            const title = document.getElementById('modal-title');
+            
+            form.reset();
+            document.getElementById('entry-id').value = '';
+            
+            if (entryId) {
+                const entry = entriesData.find(e => e.id === entryId);
+                if (entry) {
+                    title.textContent = 'Passwort bearbeiten';
+                    document.getElementById('entry-id').value = entry.id;
+                    document.getElementById('entry-name').value = entry.name || '';
+                    document.getElementById('entry-url').value = entry.url || '';
+                    document.getElementById('entry-username').value = entry.username || '';
+                    document.getElementById('entry-password').value = entry.password || '';
+                    document.getElementById('entry-folder').value = entry.folder || 'Alle';
+                    document.getElementById('entry-notes').value = entry.notes || '';
+                }
+            } else {
+                title.textContent = 'Neues Passwort';
+            }
+            
+            modal.classList.remove('hidden');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('hidden');
+            document.getElementById(modalId).classList.add('hidden');
+        }
+
+        // ==========================================
+        // PASSWORD ENTRY FUNCTIONS
+        // ==========================================
+
+        async function savePassword(e) {
+            e.preventDefault();
+            const id = document.getElementById('entry-id').value;
+            const entry = {
+                name: document.getElementById('entry-name').value,
+                url: document.getElementById('entry-url').value,
+                username: document.getElementById('entry-username').value,
+                password: document.getElementById('entry-password').value,
+                folder: document.getElementById('entry-folder').value,
+                notes: document.getElementById('entry-notes').value
+            };
+
+            let result;
+            if (id) {
+                // Update existing
+                result = await apiRequest('entries', 'PUT', { username: currentUser, entryId: id, ...entry });
+            } else {
+                // Create new
+                result = await apiRequest('entries', 'POST', { username: currentUser, ...entry });
+            }
+
+            if (result && result.success) {
+                closeModal('password-modal');
+                await loadEntries();
+                showToast(id ? 'Passwort aktualisiert' : 'Passwort erstellt');
+            }
+        }
+
+        function initiateDeleteEntry(entryId) {
+            deleteTarget = { type: 'entry', id: entryId };
+            document.getElementById('delete-modal-text').textContent = 'Dieses Passwort wirklich löschen?';
+            document.getElementById('delete-modal').classList.remove('hidden');
+        }
+
+        async function confirmDelete() {
+            if (!deleteTarget) return;
+            
+            let result;
+            if (deleteTarget.type === 'folder') {
+                result = await apiRequest('folders', 'DELETE', { username: currentUser, folderName: deleteTarget.id });
+                if (result && result.success) {
+                    foldersData = foldersData.filter(f => (typeof f === 'string' ? f : f.name) !== deleteTarget.id);
+                    if (currentFolder === deleteTarget.id) currentFolder = 'Alle';
+                    renderFolders();
+                    renderPasswords();
+                    showToast('Ordner gelöscht');
+                }
+            } else if (deleteTarget.type === 'entry') {
+                result = await apiRequest('entries', 'DELETE', { username: currentUser, entryId: deleteTarget.id });
+                if (result && result.success) {
+                    entriesData = entriesData.filter(e => e.id !== deleteTarget.id);
+                    renderPasswords();
+                    showToast('Passwort gelöscht');
+                }
+            }
+            
+            closeModal('delete-modal');
+            deleteTarget = null;
+        }
+
+        function generatePassword() {
+            const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-=[]{}|;:,.<>?';
+            let password = '';
+            for (let i = 0; i < 16; i++) {
+                password += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            document.getElementById('entry-password').value = password;
+            updatePasswordStrength(password);
+        }
+
+        function createCardHTML(entry) {
+            const faviconUrl = entry.url ? `https://www.google.com/s2/favicons?domain=${entry.url}&sz=32` : '';
+            return `
+                <div class="bg-darkgray border border-gray-800 rounded-xl p-5 hover:border-gold transition-all">
+                    <div class="flex items-start justify-between mb-4">
+                        <div class="flex items-center gap-3">
+                            ${faviconUrl ? `<img src="${faviconUrl}" class="w-8 h-8 rounded" onerror="this.style.display='none'">` : '<div class="w-8 h-8 bg-gold rounded flex items-center justify-center text-black"><i class="fas fa-key"></i></div>'}
+                            <div>
+                                <h3 class="font-bold text-white">${entry.name || 'Unbenannt'}</h3>
+                                <p class="text-xs text-gray-500">${entry.folder || 'Alle'}</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="openPasswordModal('${entry.id}')" class="text-gray-500 hover:text-gold p-1"><i class="fas fa-edit"></i></button>
+                            <button onclick="initiateDeleteEntry('${entry.id}')" class="text-gray-500 hover:text-red-500 p-1"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-500">Benutzer:</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-white">${entry.username || '-'}</span>
+                                <button onclick="copyToClipboard('${entry.username}')" class="text-gray-500 hover:text-gold"><i class="far fa-copy"></i></button>
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-500">Passwort:</span>
+                            <div class="flex items-center gap-2">
+                                <input type="password" id="pass-display-${entry.id}" value="${entry.password || ''}" readonly class="bg-transparent text-white w-24 text-right">
+                                <button onclick="toggleCardPassVisibility('${entry.id}')" class="text-gray-500 hover:text-gold"><i id="eye-icon-${entry.id}" class="fas fa-eye"></i></button>
+                                <button onclick="copyToClipboard('${entry.password}')" class="text-gray-500 hover:text-gold"><i class="far fa-copy"></i></button>
+                            </div>
+                        </div>
+                        ${entry.url ? `<a href="${entry.url}" target="_blank" class="text-gold hover:underline text-xs block truncate">${entry.url}</a>` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Event Listeners for Forms
+        document.getElementById('folder-form').addEventListener('submit', createFolder);
+        document.getElementById('password-form').addEventListener('submit', savePassword);
+        document.getElementById('confirm-delete-btn').addEventListener('click', confirmDelete);
+        document.getElementById('search-input').addEventListener('input', renderPasswords);
+
         // PASSWORDS
         function renderPasswords() {
             const searchTerm = document.getElementById('search-input').value.toLowerCase();
