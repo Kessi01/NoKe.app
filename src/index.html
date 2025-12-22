@@ -9,7 +9,6 @@
     <script src="https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.js"></script>
     <!-- Tailwind CSS für schnelles, sauberes Styling -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome für Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <script>
@@ -34,7 +33,6 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
-        /* Scrollbar Anpassung für Chrome/Edge/Safari */
         ::-webkit-scrollbar {
             width: 8px;
         }
@@ -89,12 +87,10 @@
             color: #C49C48;
         }
 
-        /* Passwort Stärke Balken Animation */
         .strength-bar {
             transition: width 0.3s ease-in-out, background-color 0.3s;
         }
 
-        /* Loading Overlay */
         #loading-overlay {
             backdrop-filter: blur(2px);
         }
@@ -103,13 +99,13 @@
 
 <body class="h-screen overflow-hidden flex flex-col">
 
-    <!-- ================= NOTIFICATION TOAST ================= -->
+    <!-- TOAST -->
     <div id="toast"
         class="fixed top-5 right-5 bg-darkgray border-l-4 border-gold text-white px-6 py-4 rounded shadow-2xl transform translate-x-full transition-transform duration-300 z-50">
         <span id="toast-message">Nachricht</span>
     </div>
 
-    <!-- ================= LOADING SPINNER (AZURE API) ================= -->
+    <!-- LOADING -->
     <div id="loading-overlay"
         class="fixed inset-0 z-[60] hidden flex items-center justify-center bg-black bg-opacity-50">
         <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gold"></div>
@@ -244,7 +240,7 @@
         </div>
     </div>
 
-    <!-- ================= MODAL: DELETE CONFIRMATION ================= -->
+    <!-- MODAL: DELETE CONFIRMATION -->
     <div id="delete-modal"
         class="fixed inset-0 z-50 hidden bg-black bg-opacity-90 flex items-center justify-center px-4">
         <div class="bg-darkgray border border-red-800 rounded-xl p-6 w-full max-w-sm relative shadow-2xl">
@@ -258,18 +254,14 @@
             </div>
             <div class="flex space-x-3">
                 <button onclick="closeModal('delete-modal')"
-                    class="flex-1 py-3 rounded bg-gray-800 text-white hover:bg-gray-700 transition-colors">
-                    Abbrechen
-                </button>
+                    class="flex-1 py-3 rounded bg-gray-800 text-white hover:bg-gray-700 transition-colors">Abbrechen</button>
                 <button onclick="confirmDelete()"
-                    class="flex-1 py-3 rounded bg-red-700 text-white hover:bg-red-600 transition-colors font-bold">
-                    Löschen
-                </button>
+                    class="flex-1 py-3 rounded bg-red-700 text-white hover:bg-red-600 transition-colors font-bold">Löschen</button>
             </div>
         </div>
     </div>
 
-    <!-- ================= MODAL: CREATE/EDIT PASSWORD ================= -->
+    <!-- MODAL: CREATE/EDIT PASSWORD -->
     <div id="password-modal"
         class="fixed inset-0 z-50 hidden bg-black bg-opacity-90 overflow-y-auto h-full w-full flex items-center justify-center px-4">
         <div class="bg-darkgray border border-gold rounded-xl shadow-2xl w-full max-w-lg relative">
@@ -365,7 +357,7 @@
         </div>
     </div>
 
-    <!-- ================= MODAL: CREATE FOLDER ================= -->
+    <!-- MODAL: CREATE FOLDER -->
     <div id="folder-modal"
         class="fixed inset-0 z-50 hidden bg-black bg-opacity-90 flex items-center justify-center px-4">
         <div class="bg-darkgray border border-gold rounded-xl p-6 w-full max-w-sm relative">
@@ -381,7 +373,7 @@
         </div>
     </div>
 
-    <!-- ================= JAVASCRIPT LOGIC ================= -->
+    <!-- JAVASCRIPT LOGIC -->
     <script>
         // ==========================================
         // AUTH0 CONFIGURATION
@@ -400,19 +392,14 @@
 
         // ==========================================
         // AZURE CONFIGURATION
-        // ==========================================
-
-        // HIER URL DEINER AZURE FUNCTION APP EINFÜGEN
-        // Beispiel: "https://mein-passwortmanager.azurewebsites.net/api"
-        // Wichtig: CORS muss in Azure aktiviert sein für deine Domain!
         const AZURE_FUNCTION_BASE_URL = "/api";
 
         // State
         let currentUser = null;
         let currentFolder = 'Alle';
-        let deleteTarget = null; // { type: 'folder'|'entry', id: ... }
-        let foldersData = []; // Lokaler Cache der Ordner
-        let entriesData = []; // Lokaler Cache der Einträge
+        let deleteTarget = null;
+        let foldersData = [];
+        let entriesData = [];
 
         // DOM Elements
         const authScreen = document.getElementById('auth-screen');
@@ -588,75 +575,36 @@
             initAuth0();
         });
 
-        // ==========================================
-        // API HELPER FUNCTION (Verbessert)
-        // ==========================================
+        // API HELPER
         async function apiRequest(endpoint, method = 'GET', body = null) {
             if (!AZURE_FUNCTION_BASE_URL) {
                 showToast("Bitte Azure URL im Code konfigurieren!", "error");
                 return null;
             }
 
-            // Loading Overlay anzeigen
             loadingOverlay.classList.remove('hidden');
             loadingOverlay.classList.add('flex');
-            
-            // DEBUG: Log Request Details
-            const requestUrl = `${AZURE_FUNCTION_BASE_URL}/${endpoint}`;
-            console.log("🌐 API Request gestartet:");
-            console.log("  📍 URL:", requestUrl);
-            console.log("  📤 Method:", method);
-            console.log("  📦 Body:", body);
-            
+
             try {
                 const headers = { 'Content-Type': 'application/json' };
                 const config = { method, headers };
+                if (body) config.body = JSON.stringify(body);
 
-                if (body) {
-                    config.body = JSON.stringify(body);
-                    console.log("  📝 JSON Body:", config.body);
-                }
-
-                console.log("  ⏳ Sende Request...");
-                const response = await fetch(requestUrl, config);
-                console.log("  📡 Response Status:", response.status, response.statusText);
-
-                // Versuchen, die Antwort als JSON zu lesen (auch bei Fehlern)
-                console.log("  📥 Lese Response Body...");
-                const data = await response.json().catch((e) => {
-                    console.error("  ❌ JSON Parse Fehler:", e);
-                    return {};
-                });
-                console.log("  📋 Response Data:", data);
+                const response = await fetch(`${AZURE_FUNCTION_BASE_URL}/${endpoint}`, config);
+                const data = await response.json().catch(() => ({}));
 
                 if (!response.ok) {
-                    // HIER IST DIE ÄNDERUNG:
-                    // Wir prüfen, ob der Server uns "errorDetails" geschickt hat (vom vorherigen Backend-Code)
                     let errorMessage = data.message || `HTTP Fehler: ${response.status}`;
-
-                    if (data.errorDetails) {
-                        console.warn("  ⚠️ Backend Debug Info:", data.errorDetails); // Für Entwickler in Konsole
-                        errorMessage += ` (Details: ${data.errorDetails})`; // Hängt den echten Fehler an den Toast an
-                    }
-
-                    console.error("  ❌ Request fehlgeschlagen:", errorMessage);
+                    if (data.errorDetails) errorMessage += ` (Details: ${data.errorDetails})`;
                     throw new Error(errorMessage);
                 }
-
-                console.log("  ✅ Request erfolgreich!");
                 return data;
 
             } catch (error) {
-                console.error("❌ API Error:", error);
-                console.error("  📍 Endpoint:", endpoint);
-                console.error("  📤 Method:", method);
-                console.error("  💬 Error Message:", error.message);
-                console.error("  📚 Stack:", error.stack);
-                // Der Toast zeigt jetzt den echten Grund an (z.B. "DB Verbindung fehlt")
+                console.error("API Error:", error);
                 showToast(error.message || "Verbindungsfehler zu Azure", "error");
                 return null;
             } finally {
-                // Loading Overlay verstecken
                 loadingOverlay.classList.add('hidden');
                 loadingOverlay.classList.remove('flex');
             }
@@ -677,10 +625,7 @@
             auth0Logout();
         }
 
-        // ==========================================
-        // APP LOGIC (DATA FETCHING)
-        // ==========================================
-
+        // APP LOGIC
         async function loadApp() {
             // This is called by Auth0 after successful authentication
             await loadFolders();
@@ -691,7 +636,6 @@
             // Hole alle Daten für den User auf einmal
             // Erwartet Antwort: { folders: [...], entries: [...] }
             const data = await apiRequest(`data?username=${encodeURIComponent(currentUser)}`, 'GET');
-
             if (data) {
                 foldersData = data.folders || [];
                 entriesData = data.entries || [];
@@ -700,21 +644,15 @@
             }
         }
 
-        // ==========================================
         // FOLDERS
-        // ==========================================
-
         function renderFolders() {
             let html = `
                 <div class="sidebar-link rounded px-4 py-2 cursor-pointer flex items-center justify-between ${currentFolder === 'Alle' ? 'active' : ''}" onclick="switchFolder('Alle')">
                     <span class="text-sm font-medium"><i class="fas fa-layer-group mr-3 w-4"></i> Alle</span>
                 </div>
             `;
-
             foldersData.forEach(folder => {
-                // folder ist hier ein Objekt oder String, je nach Datenbank. Wir gehen von { name: '...' } aus oder String.
                 const fName = typeof folder === 'string' ? folder : folder.name;
-
                 html += `
                     <div class="sidebar-link rounded px-4 py-2 cursor-pointer flex items-center justify-between ${currentFolder === fName ? 'active' : ''}" onclick="switchFolder('${fName}')">
                         <span class="text-sm font-medium"><i class="far fa-folder mr-3 w-4"></i> ${fName}</span>
@@ -722,12 +660,10 @@
                     </div>
                 `;
             });
-
             folderList.innerHTML = html;
 
-            // Select im Modal updaten
             const select = document.getElementById('entry-folder');
-            select.innerHTML = '';
+            select.innerHTML = '<option value="Alle">Alle</option>';
             foldersData.forEach(f => {
                 const fName = typeof f === 'string' ? f : f.name;
                 select.innerHTML += `<option value="${fName}">${fName}</option>`;
@@ -744,15 +680,9 @@
             e.preventDefault();
             const name = document.getElementById('new-folder-name').value;
             if (!name) return;
-
-            // Sende an Azure
-            const result = await apiRequest('folders', 'POST', {
-                username: currentUser,
-                folderName: name
-            });
-
+            const result = await apiRequest('folders', 'POST', { username: currentUser, folderName: name });
             if (result && result.success) {
-                foldersData.push(name); // Optimistisches Update oder neu laden
+                foldersData.push(name);
                 closeModal('folder-modal');
                 document.getElementById('new-folder-name').value = '';
                 renderFolders();
@@ -767,13 +697,9 @@
             document.getElementById('delete-modal').classList.remove('hidden');
         }
 
-        // ==========================================
-        // PASSWORDS (ENTRIES)
-        // ==========================================
-
+        // PASSWORDS
         function renderPasswords() {
             const searchTerm = document.getElementById('search-input').value.toLowerCase();
-
             const filtered = entriesData.filter(entry => {
                 const isFolder = currentFolder === 'Alle' || entry.folder === currentFolder;
                 const isSearch = (entry.name || '').toLowerCase().includes(searchTerm) ||
@@ -784,7 +710,6 @@
 
             document.getElementById('current-folder-title').textContent = currentFolder;
             document.getElementById('entry-count').textContent = `${filtered.length} Einträge`;
-
             passwordGrid.innerHTML = '';
 
             if (filtered.length === 0) {
@@ -797,254 +722,14 @@
             }
         }
 
-        function createCardHTML(entry) {
-            let urlHtml = '';
-            if (entry.url && entry.url.trim() !== '') {
-                let safeUrl = entry.url;
-                if (!safeUrl.startsWith('http')) safeUrl = 'https://' + safeUrl;
-                let hostname = safeUrl;
-                try { hostname = new URL(safeUrl).hostname; } catch (e) { }
-                urlHtml = `<a href="${safeUrl}" target="_blank" class="text-xs text-gold hover:underline truncate block max-w-[150px]">${hostname}</a>`;
-            }
-
-            return `
-                <div class="bg-darkgray rounded-xl p-5 border border-gray-800 hover:border-gold transition-colors group relative shadow-lg">
-                    <div class="flex justify-between items-start mb-4">
-                        <div class="flex items-center">
-                            <div class="w-10 h-10 rounded bg-black flex items-center justify-center text-gold border border-gray-800 mr-3 text-lg">
-                                ${entry.name.charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                                <h3 class="font-bold text-white text-lg leading-tight">${entry.name}</h3>
-                                ${urlHtml}
-                            </div>
-                        </div>
-                        <div class="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onclick="editEntry('${entry.id}')" class="w-8 h-8 rounded-full bg-gray-800 hover:bg-black text-gray-300 hover:text-gold flex items-center justify-center" title="Bearbeiten">
-                                <i class="fas fa-pen text-xs"></i>
-                            </button>
-                            <button onclick="initiateDeleteEntry('${entry.id}')" class="w-8 h-8 rounded-full bg-gray-800 hover:bg-red-900 text-gray-300 hover:text-red-500 flex items-center justify-center" title="Löschen">
-                                <i class="fas fa-trash text-xs"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="space-y-3">
-                        <div class="bg-black p-2 rounded border border-gray-800 flex justify-between items-center">
-                            <div class="flex items-center overflow-hidden">
-                                <i class="fas fa-user text-gray-600 text-xs w-5"></i>
-                                <span class="text-sm text-gray-300 truncate ml-1">${entry.username}</span>
-                            </div>
-                            <button onclick="copyToClipboard('${entry.username}')" class="text-gray-500 hover:text-gold px-2">
-                                <i class="far fa-copy"></i>
-                            </button>
-                        </div>
-
-                        <div class="bg-black p-2 rounded border border-gray-800 flex justify-between items-center">
-                            <div class="flex items-center overflow-hidden">
-                                <i class="fas fa-key text-gray-600 text-xs w-5"></i>
-                                <input type="password" value="${entry.password}" class="bg-transparent border-none text-sm text-gray-300 w-full focus:outline-none" readonly id="pass-display-${entry.id}">
-                            </div>
-                            <div class="flex items-center">
-                                <button onclick="toggleCardPassVisibility('${entry.id}')" class="text-gray-500 hover:text-white px-2">
-                                    <i class="far fa-eye" id="eye-icon-${entry.id}"></i>
-                                </button>
-                                <button onclick="copyToClipboard('${entry.password}')" class="text-gray-500 hover:text-gold px-2">
-                                    <i class="far fa-copy"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        // Search Listener
-        document.getElementById('search-input').addEventListener('input', renderPasswords);
-
-        // ==========================================
-        // MODAL LOGIC & CRUD OPERATIONS
-        // ==========================================
-
-        function openPasswordModal() {
-            document.getElementById('password-form').reset();
-            document.getElementById('entry-id').value = '';
-            document.getElementById('modal-title').textContent = 'Neues Passwort erstellen';
-            document.getElementById('entry-password').type = 'text';
-            checkStrength('');
-            document.getElementById('password-modal').classList.remove('hidden');
-        }
-
-        function openFolderModal() {
-            document.getElementById('folder-modal').classList.remove('hidden');
-        }
-
-        function closeModal(modalId) {
-            document.getElementById(modalId).classList.add('hidden');
-            if (modalId === 'delete-modal') {
-                deleteTarget = null;
-            }
-        }
-
-        function editEntry(id) {
-            const entry = entriesData.find(e => e.id === id);
-            if (!entry) return;
-
-            document.getElementById('entry-id').value = entry.id;
-            document.getElementById('entry-name').value = entry.name;
-            document.getElementById('entry-folder').value = entry.folder;
-            document.getElementById('entry-url').value = entry.url;
-            document.getElementById('entry-username').value = entry.username;
-            document.getElementById('entry-password').value = entry.password;
-            document.getElementById('entry-password-confirm').value = entry.password;
-
-            checkStrength(entry.password);
-            document.getElementById('modal-title').textContent = 'Passwort bearbeiten';
-            document.getElementById('password-modal').classList.remove('hidden');
-        }
-
-        document.getElementById('password-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            const id = document.getElementById('entry-id').value;
-            const name = document.getElementById('entry-name').value;
-            const folder = document.getElementById('entry-folder').value;
-            const url = document.getElementById('entry-url').value;
-            const username = document.getElementById('entry-username').value;
-            const pass = document.getElementById('entry-password').value;
-            const passConfirm = document.getElementById('entry-password-confirm').value;
-
-            if (pass !== passConfirm) {
-                showToast('Passwörter stimmen nicht überein!', 'error');
-                return;
-            }
-
-            const entryData = {
-                id: id || null, // Wenn null, erstellt Backend eine ID
-                user: currentUser,
-                name, folder, url, username, password: pass
-            };
-
-            // Azure Call
-            const result = await apiRequest('entries', 'POST', entryData);
-
-            if (result && result.success) {
-                // Wir laden hier einfach alles neu, um sicherzugehen
-                // Alternativ könnte man das Array lokal updaten für mehr Speed
-                await loadApp();
-                closeModal('password-modal');
-                showToast('Passwort gespeichert');
-            }
-        });
-
-        function initiateDeleteEntry(id) {
-            deleteTarget = { type: 'entry', id: id };
-            document.getElementById('delete-modal-text').textContent = "Bist du sicher, dass du diesen Eintrag löschen möchtest?";
-            document.getElementById('delete-modal').classList.remove('hidden');
-        }
-
-        async function confirmDelete() {
-            if (!deleteTarget) {
-                closeModal('delete-modal');
-                return;
-            }
-
-            if (deleteTarget.type === 'folder') {
-                const result = await apiRequest('folders', 'DELETE', {
-                    username: currentUser,
-                    folderName: deleteTarget.id
-                });
-
-                if (result && result.success) {
-                    if (currentFolder === deleteTarget.id) currentFolder = 'Alle';
-                    await loadApp();
-                    showToast('Ordner gelöscht');
-                }
-
-            } else if (deleteTarget.type === 'entry') {
-                const result = await apiRequest('entries', 'DELETE', {
-                    username: currentUser,
-                    id: deleteTarget.id
-                });
-
-                if (result && result.success) {
-                    await loadApp();
-                    showToast('Eintrag gelöscht');
-                }
-            }
-
-            closeModal('delete-modal');
-        }
-
-        // ==========================================
-        // UTILITIES
-        // ==========================================
-
-        const slider = document.getElementById('pass-length');
-        const sliderVal = document.getElementById('slider-val');
-        slider.oninput = function () {
-            sliderVal.textContent = this.value;
-        }
-
-        function generatePassword() {
-            const length = parseInt(slider.value);
-            const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+~`|}{[]:;?><,./-=";
-            let retVal = "";
-            for (let i = 0, n = charset.length; i < length; ++i) {
-                retVal += charset.charAt(Math.floor(Math.random() * n));
-            }
-            const passField = document.getElementById('entry-password');
-            const confirmField = document.getElementById('entry-password-confirm');
-
-            passField.value = retVal;
-            confirmField.value = retVal;
-            passField.type = 'text';
-            checkStrength(retVal);
-        }
-
-        function checkStrength(password) {
-            const meter = document.getElementById('strength-meter');
-            const text = document.getElementById('strength-text');
-            let strength = 0;
-
-            if (password.length > 0) strength += 1;
-            if (password.length > 8) strength += 1;
-            if (/[A-Z]/.test(password)) strength += 1;
-            if (/[0-9]/.test(password)) strength += 1;
-            if (/[^A-Za-z0-9]/.test(password)) strength += 1;
-
-            let color = 'bg-red-500';
-            let status = 'Sehr Schwach';
-            let width = '10%';
-
-            switch (strength) {
-                case 1: width = '20%'; break;
-                case 2: width = '40%'; color = 'bg-orange-500'; status = 'Schwach'; break;
-                case 3: width = '60%'; color = 'bg-yellow-500'; status = 'Mittel'; break;
-                case 4: width = '80%'; color = 'bg-blue-500'; status = 'Gut'; break;
-                case 5: width = '100%'; color = 'bg-green-500'; status = 'Sehr Stark'; break;
-            }
-
-            if (password.length === 0) { width = '0%'; status = 'Leer'; }
-
-            meter.className = `h-full strength-bar ${color}`;
-            meter.style.width = width;
-            text.textContent = `Stärke: ${status}`;
+        meter.className = `h-full strength-bar ${color}`;
+        meter.style.width = width;
+        text.textContent = `Stärke: ${status}`;
         }
 
         function copyToClipboard(text) {
             if (!text) return;
-            const textArea = document.createElement("textarea");
-            textArea.value = text;
-            document.body.appendChild(textArea);
-            textArea.select();
-            try {
-                document.execCommand('copy');
-                showToast('In die Zwischenablage kopiert!');
-            } catch (err) {
-                showToast('Kopieren fehlgeschlagen', 'error');
-            }
-            document.body.removeChild(textArea);
+            navigator.clipboard.writeText(text).then(() => showToast('Kopiert!')).catch(() => showToast('Fehler beim Kopieren', 'error'));
         }
 
         function toggleVisibility(id) {
@@ -1055,7 +740,6 @@
         function toggleCardPassVisibility(id) {
             const input = document.getElementById(`pass-display-${id}`);
             const icon = document.getElementById(`eye-icon-${id}`);
-
             if (input.type === 'password') {
                 input.type = 'text';
                 icon.classList.remove('fa-eye');
@@ -1070,7 +754,6 @@
         function showToast(message, type = 'success') {
             const toast = document.getElementById('toast');
             const msg = document.getElementById('toast-message');
-
             msg.textContent = message;
             if (type === 'error') {
                 toast.classList.remove('border-gold');
@@ -1079,13 +762,44 @@
                 toast.classList.add('border-gold');
                 toast.classList.remove('border-red-600');
             }
-
             toast.classList.remove('translate-x-full');
-            setTimeout(() => {
-                toast.classList.add('translate-x-full');
-            }, 3000);
+            setTimeout(() => { toast.classList.add('translate-x-full'); }, 3000);
         }
 
+        // TOTP 2FA Functions
+        async function openTotpSetup() {
+            const result = await apiRequest('auth', 'POST', { action: 'setup-totp', username: currentUser });
+            if (result && result.success) {
+                document.getElementById('qr-code-image').src = result.qrCode;
+                document.getElementById('totp-secret-display').textContent = result.secret;
+                document.getElementById('totp-setup-step1').classList.remove('hidden');
+                document.getElementById('totp-setup-step2').classList.add('hidden');
+                document.getElementById('totp-setup-modal').classList.remove('hidden');
+            } else {
+                showToast(result?.message || '2FA Setup fehlgeschlagen', 'error');
+            }
+        }
+
+        function showTotpVerifyStep() {
+            document.getElementById('totp-setup-step1').classList.add('hidden');
+            document.getElementById('totp-setup-step2').classList.remove('hidden');
+        }
+
+        function closeTotpSetup() {
+            document.getElementById('totp-setup-modal').classList.add('hidden');
+        }
+
+        document.getElementById('totp-verify-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const code = document.getElementById('totp-verify-code').value;
+            const result = await apiRequest('auth', 'POST', { action: 'enable-totp', username: currentUser, code: code });
+            if (result && result.success) {
+                showToast('2FA erfolgreich aktiviert!');
+                closeTotpSetup();
+            } else {
+                showToast(result?.message || 'Code ungültig', 'error');
+            }
+        });
     </script>
 </body>
 

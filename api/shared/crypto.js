@@ -2,7 +2,7 @@ const crypto = require('crypto');
 
 // Fallback Key für Entwicklung (NICHT IN PRODUKTION NUTZEN!)
 // In Azure Function App Settings: ENCRYPTION_KEY setzen (32 Zeichen)
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || '12345678901234567890123456789012'; // 32 chars
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || '1234567890123456789012345678'; // 32 chars
 const IV_LENGTH = 16; // For AES, this is always 16
 
 function encrypt(text) {
