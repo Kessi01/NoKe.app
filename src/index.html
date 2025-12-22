@@ -202,40 +202,288 @@
                     class="w-full text-left px-4 py-2 text-sm text-gray-400 hover:text-gold transition-colors mt-4 flex items-center">
                     <i class="fas fa-plus mr-2"></i> Ordner erstellen
                 </button>
+
+                <!-- Navigation Links -->
+                <div class="mt-6 pt-6 border-t border-gray-800">
+                    <p class="px-4 text-xs text-gray-500 uppercase font-semibold mb-2">Menü</p>
+                    
+                    <button onclick="showPage('passwords')" id="nav-passwords"
+                        class="sidebar-link w-full text-left rounded px-4 py-2 text-sm text-gray-400 hover:text-gold transition-colors flex items-center active">
+                        <i class="fas fa-key mr-3 w-4"></i> Passwörter
+                    </button>
+                    
+                    <button onclick="showPage('connections')" id="nav-connections"
+                        class="sidebar-link w-full text-left rounded px-4 py-2 text-sm text-gray-400 hover:text-gold transition-colors flex items-center">
+                        <i class="fas fa-plug mr-3 w-4"></i> Connections
+                    </button>
+                    
+                    <button onclick="showPage('settings')" id="nav-settings"
+                        class="sidebar-link w-full text-left rounded px-4 py-2 text-sm text-gray-400 hover:text-gold transition-colors flex items-center">
+                        <i class="fas fa-cog mr-3 w-4"></i> Einstellungen
+                    </button>
+                </div>
             </div>
         </div>
 
-        <!-- MAIN CONTENT -->
+        <!-- MAIN CONTENT AREA -->
         <div class="flex-1 flex flex-col bg-black min-w-0">
 
-            <!-- Top Bar: Search & Add -->
-            <div class="p-6 border-b border-gray-800 flex flex-col sm:flex-row justify-between items-center gap-4">
-                <div class="relative w-full sm:w-96">
-                    <i class="fas fa-search absolute left-3 top-3.5 text-gray-500"></i>
-                    <input type="text" id="search-input" placeholder="Suchen nach Namen, Website..."
-                        class="input-field w-full pl-10 pr-4 py-3 rounded-full text-sm bg-darkgray focus:bg-black">
+            <!-- ==================== PASSWORDS PAGE ==================== -->
+            <div id="page-passwords" class="flex-1 flex flex-col">
+                <!-- Top Bar: Search & Add -->
+                <div class="p-6 border-b border-gray-800 flex flex-col sm:flex-row justify-between items-center gap-4">
+                    <div class="relative w-full sm:w-96">
+                        <i class="fas fa-search absolute left-3 top-3.5 text-gray-500"></i>
+                        <input type="text" id="search-input" placeholder="Suchen nach Namen, Website..."
+                            class="input-field w-full pl-10 pr-4 py-3 rounded-full text-sm bg-darkgray focus:bg-black">
+                    </div>
+                    <button onclick="openPasswordModal()"
+                        class="btn-gold px-6 py-3 rounded-full shadow-lg flex items-center whitespace-nowrap">
+                        <i class="fas fa-plus mr-2"></i> Neues Passwort
+                    </button>
                 </div>
-                <button onclick="openPasswordModal()"
-                    class="btn-gold px-6 py-3 rounded-full shadow-lg flex items-center whitespace-nowrap">
-                    <i class="fas fa-plus mr-2"></i> Neues Passwort
-                </button>
+
+                <!-- Password Grid -->
+                <div class="flex-1 overflow-y-auto p-6">
+                    <div class="flex justify-between items-end mb-6">
+                        <h2 id="current-folder-title" class="text-2xl font-bold text-white">Alle Passwörter</h2>
+                        <span id="entry-count" class="text-sm text-gold">0 Einträge</span>
+                    </div>
+
+                    <div id="password-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                        <!-- Password Cards will be injected here -->
+                    </div>
+
+                    <!-- Empty State -->
+                    <div id="empty-state" class="hidden flex flex-col items-center justify-center h-64 text-gray-500">
+                        <i class="fas fa-shield-alt text-6xl mb-4 text-gray-800"></i>
+                        <p>Keine Passwörter in diesem Ordner gefunden.</p>
+                    </div>
+                </div>
             </div>
 
-            <!-- Password Grid -->
-            <div class="flex-1 overflow-y-auto p-6">
-                <div class="flex justify-between items-end mb-6">
-                    <h2 id="current-folder-title" class="text-2xl font-bold text-white">Alle Passwörter</h2>
-                    <span id="entry-count" class="text-sm text-gold">0 Einträge</span>
+            <!-- ==================== SETTINGS PAGE ==================== -->
+            <div id="page-settings" class="flex-1 flex flex-col hidden">
+                <div class="p-6 border-b border-gray-800">
+                    <h1 class="text-2xl font-bold text-white">Einstellungen</h1>
+                    <p class="text-gray-500 text-sm mt-1">Verwalten Sie Ihr Profil und Ihre Präferenzen</p>
                 </div>
 
-                <div id="password-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                    <!-- Password Cards will be injected here -->
+                <div class="flex-1 overflow-y-auto p-6">
+                    <div class="max-w-2xl">
+                        <!-- Profile Section -->
+                        <div class="bg-darkgray border border-gray-800 rounded-xl p-6 mb-6">
+                            <h2 class="text-lg font-bold text-gold mb-4 flex items-center">
+                                <i class="fas fa-user mr-2"></i> Profil
+                            </h2>
+                            
+                            <form id="settings-form" class="space-y-4">
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-xs text-gray-400 mb-1">Vorname</label>
+                                        <input type="text" id="settings-firstname" class="input-field w-full p-2.5 rounded" placeholder="Max">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs text-gray-400 mb-1">Nachname</label>
+                                        <input type="text" id="settings-lastname" class="input-field w-full p-2.5 rounded" placeholder="Mustermann">
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-xs text-gray-400 mb-1">Anzeigename</label>
+                                    <input type="text" id="settings-displayname" class="input-field w-full p-2.5 rounded" placeholder="Max Mustermann">
+                                    <p class="text-xs text-gray-600 mt-1">Dieser Name wird in der Sidebar angezeigt</p>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-xs text-gray-400 mb-1">E-Mail</label>
+                                    <input type="email" id="settings-email" class="input-field w-full p-2.5 rounded bg-gray-900" readonly>
+                                    <p class="text-xs text-gray-600 mt-1">Die E-Mail wird von Auth0 verwaltet</p>
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs text-gray-400 mb-1">Unternehmen (optional)</label>
+                                    <input type="text" id="settings-company" class="input-field w-full p-2.5 rounded" placeholder="Firma GmbH">
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs text-gray-400 mb-1">Telefon (optional)</label>
+                                    <input type="tel" id="settings-phone" class="input-field w-full p-2.5 rounded" placeholder="+41 79 123 45 67">
+                                </div>
+
+                                <div class="pt-4 flex justify-end">
+                                    <button type="submit" class="btn-gold px-6 py-2 rounded shadow flex items-center">
+                                        <i class="fas fa-save mr-2"></i> Speichern
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- Account Info -->
+                        <div class="bg-darkgray border border-gray-800 rounded-xl p-6">
+                            <h2 class="text-lg font-bold text-gold mb-4 flex items-center">
+                                <i class="fas fa-info-circle mr-2"></i> Account-Informationen
+                            </h2>
+                            <div class="space-y-3 text-sm">
+                                <div class="flex justify-between">
+                                    <span class="text-gray-500">Auth0 ID</span>
+                                    <span id="settings-auth0id" class="text-gray-300 font-mono text-xs">-</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-500">Erstellt am</span>
+                                    <span id="settings-created" class="text-gray-300">-</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-500">Letzter Login</span>
+                                    <span id="settings-lastlogin" class="text-gray-300">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== CONNECTIONS PAGE ==================== -->
+            <div id="page-connections" class="flex-1 flex flex-col hidden">
+                <div class="p-6 border-b border-gray-800 flex justify-between items-center">
+                    <div>
+                        <h1 class="text-2xl font-bold text-white">Connections</h1>
+                        <p class="text-gray-500 text-sm mt-1">API-Tokens für externe Anwendungen verwalten</p>
+                    </div>
+                    <button onclick="openTokenModal()" class="btn-gold px-4 py-2 rounded shadow flex items-center">
+                        <i class="fas fa-plus mr-2"></i> Neuer Token
+                    </button>
                 </div>
 
-                <!-- Empty State -->
-                <div id="empty-state" class="hidden flex flex-col items-center justify-center h-64 text-gray-500">
-                    <i class="fas fa-shield-alt text-6xl mb-4 text-gray-800"></i>
-                    <p>Keine Passwörter in diesem Ordner gefunden.</p>
+                <div class="flex-1 overflow-y-auto p-6">
+                    <!-- Tokens List -->
+                    <div id="tokens-list" class="space-y-4">
+                        <!-- Tokens will be injected here -->
+                    </div>
+
+                    <!-- Empty State -->
+                    <div id="tokens-empty" class="flex flex-col items-center justify-center h-64 text-gray-500">
+                        <i class="fas fa-plug text-6xl mb-4 text-gray-800"></i>
+                        <p class="mb-4">Keine API-Tokens vorhanden</p>
+                        <button onclick="openTokenModal()" class="btn-gold px-4 py-2 rounded text-sm">
+                            <i class="fas fa-plus mr-2"></i> Ersten Token erstellen
+                        </button>
+                    </div>
+
+                    <!-- API Documentation -->
+                    <div class="mt-8 bg-darkgray border border-gray-800 rounded-xl p-6">
+                        <h2 class="text-lg font-bold text-gold mb-4 flex items-center">
+                            <i class="fas fa-book mr-2"></i> API-Dokumentation
+                        </h2>
+                        <p class="text-gray-400 text-sm mb-4">
+                            Verwenden Sie die API-Tokens, um von externen Anwendungen (z.B. Browser-Plugin) auf Ihre Passwörter zuzugreifen.
+                        </p>
+                        <div class="bg-black rounded p-4 font-mono text-sm">
+                            <p class="text-gray-500 mb-2"># Beispiel API-Aufruf</p>
+                            <p class="text-green-400">GET /api/entries</p>
+                            <p class="text-gray-400">Authorization: Bearer <span class="text-gold">&lt;your-token&gt;</span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= MODAL: CREATE TOKEN ================= -->
+    <div id="token-modal" class="fixed inset-0 z-50 hidden bg-black bg-opacity-90 flex items-center justify-center px-4">
+        <div class="bg-darkgray border border-gold rounded-xl w-full max-w-md relative">
+            <button onclick="closeModal('token-modal')" class="absolute top-4 right-4 text-gray-400 hover:text-white">
+                <i class="fas fa-times"></i>
+            </button>
+
+            <div class="p-6">
+                <h3 class="text-xl font-bold text-gold mb-6">Neuen API-Token erstellen</h3>
+
+                <form id="token-form" class="space-y-4">
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">Token-Name</label>
+                        <input type="text" id="token-name" class="input-field w-full p-2.5 rounded" 
+                            placeholder="z.B. Chrome Browser Plugin" required>
+                        <p class="text-xs text-gray-600 mt-1">Geben Sie einen beschreibenden Namen für diesen Token</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">Berechtigungen</label>
+                        <div class="space-y-2">
+                            <label class="flex items-center text-sm text-gray-300">
+                                <input type="checkbox" id="token-perm-read" checked class="mr-2 accent-gold"> 
+                                <i class="fas fa-eye mr-2 text-green-500 w-4"></i> Passwörter lesen
+                            </label>
+                            <label class="flex items-center text-sm text-gray-300">
+                                <input type="checkbox" id="token-perm-write" class="mr-2 accent-gold"> 
+                                <i class="fas fa-edit mr-2 text-yellow-500 w-4"></i> Passwörter erstellen/bearbeiten
+                            </label>
+                            <label class="flex items-center text-sm text-gray-300">
+                                <input type="checkbox" id="token-perm-delete" class="mr-2 accent-gold"> 
+                                <i class="fas fa-trash mr-2 text-red-500 w-4"></i> Passwörter löschen
+                            </label>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs text-gray-400 mb-1">Gültigkeitsdauer</label>
+                        <select id="token-expiry" class="input-field w-full p-2.5 rounded cursor-pointer">
+                            <option value="30">30 Tage</option>
+                            <option value="90">90 Tage</option>
+                            <option value="365" selected>1 Jahr</option>
+                            <option value="0">Nie ablaufen</option>
+                        </select>
+                    </div>
+
+                    <div class="pt-4 flex justify-end space-x-3">
+                        <button type="button" onclick="closeModal('token-modal')" class="px-4 py-2 text-gray-400 hover:text-white">
+                            Abbrechen
+                        </button>
+                        <button type="submit" class="btn-gold px-6 py-2 rounded shadow">
+                            Token erstellen
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= MODAL: SHOW GENERATED TOKEN ================= -->
+    <div id="token-display-modal" class="fixed inset-0 z-50 hidden bg-black bg-opacity-90 flex items-center justify-center px-4">
+        <div class="bg-darkgray border border-gold rounded-xl w-full max-w-lg relative">
+            <div class="p-6">
+                <div class="text-center mb-6">
+                    <div class="w-16 h-16 bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-check text-green-500 text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-white">Token erfolgreich erstellt!</h3>
+                    <p class="text-gray-400 text-sm mt-2">
+                        Kopieren Sie den Token jetzt. Er wird nur einmal angezeigt!
+                    </p>
+                </div>
+
+                <div class="bg-black rounded-lg p-4 mb-4">
+                    <div class="flex items-center justify-between">
+                        <code id="generated-token" class="text-gold font-mono text-sm break-all flex-1 mr-4">
+                            <!-- Token will be inserted here -->
+                        </code>
+                        <button onclick="copyGeneratedToken()" class="btn-gold px-3 py-2 rounded text-sm flex-shrink-0">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-red-900/20 border border-red-800 rounded-lg p-4 mb-6">
+                    <p class="text-red-400 text-sm flex items-start">
+                        <i class="fas fa-exclamation-triangle mr-2 mt-0.5"></i>
+                        <span>Dieser Token wird nur einmal angezeigt. Speichern Sie ihn sicher ab!</span>
+                    </p>
+                </div>
+
+                <div class="flex justify-end">
+                    <button onclick="closeModal('token-display-modal')" class="btn-gold px-6 py-2 rounded">
+                        Verstanden
+                    </button>
                 </div>
             </div>
         </div>
@@ -586,6 +834,266 @@
             // Load initial data
             await loadFolders();
             await loadEntries();
+            await loadUserSettings();
+            await loadTokens();
+        }
+
+        // ==========================================
+        // PAGE NAVIGATION
+        // ==========================================
+
+        let currentPage = 'passwords';
+
+        function showPage(pageName) {
+            // Hide all pages
+            document.getElementById('page-passwords').classList.add('hidden');
+            document.getElementById('page-settings').classList.add('hidden');
+            document.getElementById('page-connections').classList.add('hidden');
+
+            // Remove active from all nav items
+            document.getElementById('nav-passwords').classList.remove('active');
+            document.getElementById('nav-settings').classList.remove('active');
+            document.getElementById('nav-connections').classList.remove('active');
+
+            // Show selected page
+            document.getElementById(`page-${pageName}`).classList.remove('hidden');
+            document.getElementById(`nav-${pageName}`).classList.add('active');
+
+            currentPage = pageName;
+
+            // Load page-specific data
+            if (pageName === 'settings') {
+                loadUserSettings();
+            } else if (pageName === 'connections') {
+                loadTokens();
+            }
+        }
+
+        // ==========================================
+        // SETTINGS FUNCTIONS
+        // ==========================================
+
+        let userSettings = {};
+
+        async function loadUserSettings() {
+            try {
+                const result = await apiRequest(`auth`, 'POST', {
+                    action: 'get-profile',
+                    username: currentUser
+                });
+
+                if (result && result.success && result.profile) {
+                    userSettings = result.profile;
+                    
+                    // Fill form fields
+                    document.getElementById('settings-firstname').value = userSettings.firstName || '';
+                    document.getElementById('settings-lastname').value = userSettings.lastName || '';
+                    document.getElementById('settings-displayname').value = userSettings.displayName || userSettings.name || '';
+                    document.getElementById('settings-email').value = userSettings.email || currentUser;
+                    document.getElementById('settings-company').value = userSettings.company || '';
+                    document.getElementById('settings-phone').value = userSettings.phone || '';
+                    
+                    // Account info
+                    document.getElementById('settings-auth0id').textContent = userSettings.auth0Id || '-';
+                    document.getElementById('settings-created').textContent = userSettings.createdAt ? new Date(userSettings.createdAt).toLocaleDateString('de-DE') : '-';
+                    document.getElementById('settings-lastlogin').textContent = userSettings.lastLogin ? new Date(userSettings.lastLogin).toLocaleDateString('de-DE') : '-';
+
+                    // Update sidebar display name
+                    updateSidebarDisplayName();
+                }
+            } catch (error) {
+                console.error('Error loading user settings:', error);
+            }
+        }
+
+        async function saveUserSettings(e) {
+            e.preventDefault();
+            
+            const settings = {
+                firstName: document.getElementById('settings-firstname').value,
+                lastName: document.getElementById('settings-lastname').value,
+                displayName: document.getElementById('settings-displayname').value,
+                company: document.getElementById('settings-company').value,
+                phone: document.getElementById('settings-phone').value
+            };
+
+            try {
+                const result = await apiRequest('auth', 'POST', {
+                    action: 'update-profile',
+                    username: currentUser,
+                    ...settings
+                });
+
+                if (result && result.success) {
+                    userSettings = { ...userSettings, ...settings };
+                    updateSidebarDisplayName();
+                    showToast('Einstellungen gespeichert');
+                } else {
+                    showToast(result?.message || 'Fehler beim Speichern', 'error');
+                }
+            } catch (error) {
+                console.error('Error saving settings:', error);
+                showToast('Fehler beim Speichern', 'error');
+            }
+        }
+
+        function updateSidebarDisplayName() {
+            const displayName = userSettings.displayName || userSettings.name || auth0User?.name || currentUser;
+            document.getElementById('current-username-display').textContent = displayName;
+        }
+
+        // ==========================================
+        // TOKEN/CONNECTIONS FUNCTIONS
+        // ==========================================
+
+        let tokensData = [];
+
+        async function loadTokens() {
+            try {
+                const result = await apiRequest('auth', 'POST', {
+                    action: 'list-tokens',
+                    username: currentUser
+                });
+
+                if (result && result.success) {
+                    tokensData = result.tokens || [];
+                    renderTokens();
+                }
+            } catch (error) {
+                console.error('Error loading tokens:', error);
+            }
+        }
+
+        function renderTokens() {
+            const tokensList = document.getElementById('tokens-list');
+            const tokensEmpty = document.getElementById('tokens-empty');
+
+            if (tokensData.length === 0) {
+                tokensList.innerHTML = '';
+                tokensEmpty.classList.remove('hidden');
+                return;
+            }
+
+            tokensEmpty.classList.add('hidden');
+            tokensList.innerHTML = tokensData.map(token => `
+                <div class="bg-darkgray border border-gray-800 rounded-xl p-5 hover:border-gold transition-all">
+                    <div class="flex items-start justify-between mb-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-gold/20 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-key text-gold"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-white">${token.name}</h3>
+                                <p class="text-xs text-gray-500">Erstellt: ${new Date(token.createdAt).toLocaleDateString('de-DE')}</p>
+                            </div>
+                        </div>
+                        <button onclick="revokeToken('${token.id}')" class="text-gray-500 hover:text-red-500 p-2" title="Token widerrufen">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                    <div class="flex flex-wrap gap-2 mb-3">
+                        ${token.permissions?.read ? '<span class="bg-green-900/30 text-green-400 text-xs px-2 py-1 rounded">Lesen</span>' : ''}
+                        ${token.permissions?.write ? '<span class="bg-yellow-900/30 text-yellow-400 text-xs px-2 py-1 rounded">Schreiben</span>' : ''}
+                        ${token.permissions?.delete ? '<span class="bg-red-900/30 text-red-400 text-xs px-2 py-1 rounded">Löschen</span>' : ''}
+                    </div>
+                    <div class="flex justify-between text-xs text-gray-500">
+                        <span>Token: ${token.tokenPreview || '••••••••'}</span>
+                        <span>${token.expiresAt ? 'Läuft ab: ' + new Date(token.expiresAt).toLocaleDateString('de-DE') : 'Kein Ablaufdatum'}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function openTokenModal() {
+            document.getElementById('token-form').reset();
+            document.getElementById('token-modal').classList.remove('hidden');
+        }
+
+        async function createToken(e) {
+            e.preventDefault();
+
+            const tokenData = {
+                name: document.getElementById('token-name').value,
+                permissions: {
+                    read: document.getElementById('token-perm-read').checked,
+                    write: document.getElementById('token-perm-write').checked,
+                    delete: document.getElementById('token-perm-delete').checked
+                },
+                expiryDays: parseInt(document.getElementById('token-expiry').value)
+            };
+
+            try {
+                const result = await apiRequest('auth', 'POST', {
+                    action: 'create-token',
+                    username: currentUser,
+                    ...tokenData
+                });
+
+                if (result && result.success && result.token) {
+                    closeModal('token-modal');
+                    
+                    // Show the generated token
+                    document.getElementById('generated-token').textContent = result.token;
+                    document.getElementById('token-display-modal').classList.remove('hidden');
+                    
+                    // Reload tokens list
+                    await loadTokens();
+                } else {
+                    showToast(result?.message || 'Fehler beim Erstellen', 'error');
+                }
+            } catch (error) {
+                console.error('Error creating token:', error);
+                showToast('Fehler beim Erstellen', 'error');
+            }
+        }
+
+        function copyGeneratedToken() {
+            const token = document.getElementById('generated-token').textContent;
+            navigator.clipboard.writeText(token).then(() => {
+                showToast('Token kopiert!');
+            }).catch(() => {
+                showToast('Fehler beim Kopieren', 'error');
+            });
+        }
+
+        async function revokeToken(tokenId) {
+            if (!confirm('Möchten Sie diesen Token wirklich widerrufen? Alle Anwendungen, die diesen Token verwenden, verlieren den Zugriff.')) {
+                return;
+            }
+
+            try {
+                const result = await apiRequest('auth', 'POST', {
+                    action: 'revoke-token',
+                    username: currentUser,
+                    tokenId: tokenId
+                });
+
+                if (result && result.success) {
+                    showToast('Token widerrufen');
+                    await loadTokens();
+                } else {
+                    showToast(result?.message || 'Fehler beim Widerrufen', 'error');
+                }
+            } catch (error) {
+                console.error('Error revoking token:', error);
+                showToast('Fehler beim Widerrufen', 'error');
+            }
+        }
+
+        // Event Listeners for new forms
+        function setupNewEventListeners() {
+            const settingsForm = document.getElementById('settings-form');
+            const tokenForm = document.getElementById('token-form');
+            
+            if (settingsForm) settingsForm.addEventListener('submit', saveUserSettings);
+            if (tokenForm) tokenForm.addEventListener('submit', createToken);
+        }
+
+        // Initialize new event listeners
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', setupNewEventListeners);
+        } else {
+            setupNewEventListeners();
         }
 
         /**
