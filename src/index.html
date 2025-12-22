@@ -460,6 +460,10 @@
                 if (isAuthenticated) {
                     auth0User = await auth0Client.getUser();
                     currentUser = auth0User.email || auth0User.name || auth0User.sub;
+                    
+                    // Ensure user exists in database (create if not)
+                    await ensureUserInDatabase();
+                    
                     await showMainApp();
                 } else {
                     showAuth0LoginState();
@@ -468,6 +472,32 @@
             } catch (error) {
                 console.error('Auth0 Initialization Error:', error);
                 showAuth0ErrorState(error.message);
+            }
+        }
+
+        /**
+         * Ensure Auth0 user exists in database
+         * Creates a new user record if they don't exist yet
+         */
+        async function ensureUserInDatabase() {
+            try {
+                const result = await apiRequest('auth', 'POST', {
+                    action: 'ensure-user',
+                    username: currentUser,
+                    email: auth0User.email,
+                    name: auth0User.name,
+                    picture: auth0User.picture,
+                    auth0Id: auth0User.sub
+                });
+                
+                if (result && result.success) {
+                    console.log('User synced with database:', result.message);
+                } else if (result) {
+                    console.warn('User sync warning:', result.message);
+                }
+            } catch (error) {
+                console.error('Error ensuring user in database:', error);
+                // Don't block login if this fails - user can still use the app
             }
         }
 

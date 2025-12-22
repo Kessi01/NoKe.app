@@ -38,6 +38,62 @@ module.exports = async function (context, req) {
         const { resources } = await container.items.query(querySpec).fetchAll();
         const userDoc = resources[0];
 
+        // ENSURE-USER (Auth0 Integration)
+        // Creates a user in the database if they don't exist (for Auth0 users without password)
+        if (action === 'ensure-user') {
+            const { email, name, picture, auth0Id } = req.body;
+
+            if (userDoc) {
+                // User already exists - optionally update their profile
+                try {
+                    const updatedDoc = {
+                        ...userDoc,
+                        email: email || userDoc.email,
+                        name: name || userDoc.name,
+                        picture: picture || userDoc.picture,
+                        auth0Id: auth0Id || userDoc.auth0Id,
+                        lastLogin: new Date().toISOString()
+                    };
+                    await container.items.upsert(updatedDoc);
+                    context.res = { body: { success: true, message: "User aktualisiert", exists: true } };
+                } catch (e) {
+                    context.log.error("Error updating user:", e);
+                    context.res = { body: { success: true, message: "User existiert bereits", exists: true } };
+                }
+                return;
+            }
+
+            // Create new user without password (Auth0 handles authentication)
+            const newUserDoc = {
+                id: username + "_profile",
+                username,
+                email: email || username,
+                name: name || username,
+                picture: picture || null,
+                auth0Id: auth0Id || null,
+                password: null,  // No password - Auth0 handles auth
+                totpEnabled: false,
+                totpSecret: null,
+                type: "user",
+                authProvider: "auth0",
+                createdAt: new Date().toISOString(),
+                lastLogin: new Date().toISOString()
+            };
+
+            try {
+                await container.items.create(newUserDoc);
+                context.res = { body: { success: true, message: "User angelegt", created: true } };
+            } catch (e) {
+                if (e.code === 409) {
+                    // User was created by another request in the meantime
+                    context.res = { body: { success: true, message: "User existiert bereits", exists: true } };
+                } else {
+                    throw e;
+                }
+            }
+            return;
+        }
+
         // REGISTER
         if (action === 'register') {
             if (!password) throw new Error("Passwort fehlt");
