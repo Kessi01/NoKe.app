@@ -793,11 +793,18 @@
 
             let result;
             if (id) {
-                // Update existing
-                result = await apiRequest('entries', 'PUT', { username: currentUser, entryId: id, ...entry });
+                // Update existing - API uses POST with id for upsert
+                result = await apiRequest('entries', 'POST', { 
+                    id: id,
+                    user: currentUser,  // API expects 'user' not 'username' 
+                    ...entry 
+                });
             } else {
                 // Create new
-                result = await apiRequest('entries', 'POST', { username: currentUser, ...entry });
+                result = await apiRequest('entries', 'POST', { 
+                    user: currentUser,  // API expects 'user' not 'username'
+                    ...entry 
+                });
             }
 
             if (result && result.success) {
@@ -827,7 +834,8 @@
                     showToast('Ordner gelöscht');
                 }
             } else if (deleteTarget.type === 'entry') {
-                result = await apiRequest('entries', 'DELETE', { username: currentUser, entryId: deleteTarget.id });
+                // API expects 'id' and 'username' for delete
+                result = await apiRequest('entries', 'DELETE', { id: deleteTarget.id, username: currentUser });
                 if (result && result.success) {
                     entriesData = entriesData.filter(e => e.id !== deleteTarget.id);
                     renderPasswords();
