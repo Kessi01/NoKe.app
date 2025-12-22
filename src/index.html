@@ -5,6 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NoKe Passwortmanager</title>
+    <!-- Auth0 SPA JS SDK via CDN -->
+    <script src="https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.js"></script>
     <!-- Tailwind CSS für schnelles, sauberes Styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome für Icons -->
@@ -113,51 +115,58 @@
         <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gold"></div>
     </div>
 
-    <!-- ================= AUTH SCREEN (LOGIN / REGISTER) ================= -->
+    <!-- ================= AUTH SCREEN (AUTH0 INTEGRATION) ================= -->
     <div id="auth-screen" class="fixed inset-0 z-40 flex items-center justify-center bg-black bg-opacity-100">
         <div class="bg-darkgray p-8 rounded-xl shadow-2xl border border-gray-800 w-full max-w-md">
-            <div class="text-center mb-8">
-                <h1 class="text-4xl font-bold text-gold tracking-wider mb-2">NoKe</h1>
-                <p class="text-gray-400 text-sm">Sicherer Passwortmanager (Azure Cloud)</p>
+            
+            <!-- Auth0 Loading State -->
+            <div id="auth0-loading-state" class="text-center py-8">
+                <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gold mx-auto mb-4"></div>
+                <p class="text-gray-400">Authentifizierung wird geladen...</p>
             </div>
 
-            <!-- Login Form -->
-            <form id="login-form" class="space-y-6">
-                <div>
-                    <label class="block text-xs text-gold uppercase tracking-widest mb-1">Benutzername</label>
-                    <input type="text" id="login-user" class="input-field w-full p-3 rounded"
-                        placeholder="Ihr Benutzername" required>
+            <!-- Auth0 Error State -->
+            <div id="auth0-error-state" class="hidden text-center py-8">
+                <div class="w-16 h-16 bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-exclamation-triangle text-red-500 text-2xl"></i>
                 </div>
-                <div>
-                    <label class="block text-xs text-gold uppercase tracking-widest mb-1">Passwort</label>
-                    <input type="password" id="login-pass" class="input-field w-full p-3 rounded" placeholder="••••••••"
-                        required>
-                </div>
-                <button type="submit" class="btn-gold w-full py-3 rounded mt-4">Anmelden</button>
-                <p class="text-center text-sm text-gray-400 mt-4">
-                    Noch kein Konto? <a href="#" onclick="toggleAuth('register')"
-                        class="text-gold hover:underline">Registrieren</a>
-                </p>
-            </form>
+                <h3 class="text-xl font-bold text-white mb-2">Authentifizierungsfehler</h3>
+                <p id="auth0-error-message" class="text-gray-400 text-sm mb-4">Ein Fehler ist aufgetreten.</p>
+                <button onclick="auth0Login()" class="btn-gold px-6 py-2 rounded">Erneut versuchen</button>
+            </div>
 
-            <!-- Register Form (Hidden by default) -->
-            <form id="register-form" class="space-y-6 hidden">
-                <div>
-                    <label class="block text-xs text-gold uppercase tracking-widest mb-1">Neuer Benutzername</label>
-                    <input type="text" id="reg-user" class="input-field w-full p-3 rounded"
-                        placeholder="Wählen Sie einen Namen" required>
+            <!-- Auth0 Login State -->
+            <div id="auth0-login-state" class="hidden">
+                <div class="text-center mb-8">
+                    <h1 class="text-4xl font-bold text-gold tracking-wider mb-2">NoKe</h1>
+                    <p class="text-gray-400 text-sm">Sicherer Passwortmanager mit Auth0</p>
                 </div>
-                <div>
-                    <label class="block text-xs text-gold uppercase tracking-widest mb-1">Master-Passwort</label>
-                    <input type="password" id="reg-pass" class="input-field w-full p-3 rounded"
-                        placeholder="Sicheres Passwort wählen" required>
+
+                <!-- Auth0 Login Features -->
+                <div class="space-y-4 mb-8">
+                    <div class="flex items-center gap-3 text-gray-400">
+                        <i class="fas fa-shield-halved text-gold w-5"></i>
+                        <span class="text-sm">Ende-zu-Ende Verschlüsselung</span>
+                    </div>
+                    <div class="flex items-center gap-3 text-gray-400">
+                        <i class="fas fa-lock text-gold w-5"></i>
+                        <span class="text-sm">Sichere Authentifizierung mit Auth0</span>
+                    </div>
+                    <div class="flex items-center gap-3 text-gray-400">
+                        <i class="fas fa-cloud text-gold w-5"></i>
+                        <span class="text-sm">Synchronisierung über alle Geräte</span>
+                    </div>
                 </div>
-                <button type="submit" class="btn-gold w-full py-3 rounded mt-4">Konto erstellen</button>
-                <p class="text-center text-sm text-gray-400 mt-4">
-                    Bereits registriert? <a href="#" onclick="toggleAuth('login')"
-                        class="text-gold hover:underline">Anmelden</a>
+
+                <button onclick="auth0Login()" class="btn-gold w-full py-3 rounded flex items-center justify-center gap-2">
+                    <i class="fas fa-sign-in-alt"></i>
+                    Mit Auth0 anmelden
+                </button>
+
+                <p class="text-center text-xs text-gray-500 mt-6">
+                    Gesichert durch <a href="https://auth0.com" target="_blank" class="text-gold hover:underline">Auth0</a>
                 </p>
-            </form>
+            </div>
         </div>
     </div>
 
@@ -170,14 +179,18 @@
                 <h2 class="text-2xl font-bold text-gold">NoKe</h2>
             </div>
 
-            <!-- User Profile Small -->
+            <!-- User Profile Small (Auth0 Integration) -->
             <div class="p-4 flex items-center space-x-3 bg-darkgray mx-4 mt-4 rounded border border-gray-800">
-                <div class="w-8 h-8 rounded-full bg-gold flex items-center justify-center text-black font-bold">
-                    <i class="fas fa-user"></i>
-                </div>
-                <div class="overflow-hidden">
+                <img id="user-avatar" 
+                    src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='16' fill='%23C49C48'/%3E%3Cpath d='M16 14.5c2.5 0 4.5-2 4.5-4.5s-2-4.5-4.5-4.5-4.5 2-4.5 4.5 2 4.5 4.5 4.5zm0 2.25c-3 0-9 1.5-9 4.5v1.13c0 .62.5 1.12 1.13 1.12h15.75c.62 0 1.13-.5 1.13-1.13v-1.12c0-3-6-4.5-9-4.5z' fill='%23000'/%3E%3C/svg%3E"
+                    alt="User Avatar"
+                    class="w-8 h-8 rounded-full object-cover border border-gold"
+                    onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'32\' height=\'32\' viewBox=\'0 0 32 32\'%3E%3Ccircle cx=\'16\' cy=\'16\' r=\'16\' fill=\'%23C49C48\'/%3E%3Cpath d=\'M16 14.5c2.5 0 4.5-2 4.5-4.5s-2-4.5-4.5-4.5-4.5 2-4.5 4.5 2 4.5 4.5 4.5zm0 2.25c-3 0-9 1.5-9 4.5v1.13c0 .62.5 1.12 1.13 1.12h15.75c.62 0 1.13-.5 1.13-1.13v-1.12c0-3-6-4.5-9-4.5z\' fill=\'%23000\'/%3E%3C/svg%3E'"
+                >
+                <div class="overflow-hidden flex-1">
                     <p id="current-username-display" class="text-sm font-bold truncate">User</p>
-                    <button onclick="logout()" class="text-xs text-gray-500 hover:text-white">Abmelden</button>
+                    <p id="current-email-display" class="text-xs text-gray-500 truncate hidden"></p>
+                    <button onclick="auth0Logout()" class="text-xs text-gray-500 hover:text-gold transition-colors">Abmelden</button>
                 </div>
             </div>
 
@@ -371,6 +384,21 @@
     <!-- ================= JAVASCRIPT LOGIC ================= -->
     <script>
         // ==========================================
+        // AUTH0 CONFIGURATION
+        // ==========================================
+        
+        // HIER AUTH0 KONFIGURATION EINFÜGEN
+        // Gehe zu https://manage.auth0.com/dashboard/ und erstelle eine SPA-Anwendung
+        const AUTH0_CONFIG = {
+            domain: 'YOUR_AUTH0_DOMAIN.auth0.com',  // z.B. 'dev-xxxxx.us.auth0.com'
+            clientId: 'YOUR_AUTH0_CLIENT_ID'        // z.B. 'abc123def456...'
+        };
+
+        // Auth0 Client Instance
+        let auth0Client = null;
+        let auth0User = null;
+
+        // ==========================================
         // AZURE CONFIGURATION
         // ==========================================
 
@@ -392,6 +420,173 @@
         const passwordGrid = document.getElementById('password-grid');
         const folderList = document.getElementById('folder-list');
         const loadingOverlay = document.getElementById('loading-overlay');
+
+        // Auth0 DOM Elements
+        const auth0LoadingState = document.getElementById('auth0-loading-state');
+        const auth0ErrorState = document.getElementById('auth0-error-state');
+        const auth0LoginState = document.getElementById('auth0-login-state');
+        const auth0ErrorMessage = document.getElementById('auth0-error-message');
+
+        // ==========================================
+        // AUTH0 INTEGRATION
+        // ==========================================
+
+        /**
+         * Initialize Auth0 Client
+         */
+        async function initAuth0() {
+            try {
+                // Validate configuration
+                if (!AUTH0_CONFIG.domain || AUTH0_CONFIG.domain === 'YOUR_AUTH0_DOMAIN.auth0.com') {
+                    throw new Error('Bitte Auth0 Domain konfigurieren (AUTH0_CONFIG.domain)');
+                }
+                if (!AUTH0_CONFIG.clientId || AUTH0_CONFIG.clientId === 'YOUR_AUTH0_CLIENT_ID') {
+                    throw new Error('Bitte Auth0 Client ID konfigurieren (AUTH0_CONFIG.clientId)');
+                }
+
+                // Create Auth0 client
+                auth0Client = await window.auth0.createAuth0Client({
+                    domain: AUTH0_CONFIG.domain,
+                    clientId: AUTH0_CONFIG.clientId,
+                    authorizationParams: {
+                        redirect_uri: window.location.origin + window.location.pathname
+                    },
+                    cacheLocation: 'localstorage'
+                });
+
+                // Handle redirect callback
+                if (window.location.search.includes('code=') && window.location.search.includes('state=')) {
+                    await auth0Client.handleRedirectCallback();
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                }
+
+                // Check authentication state
+                const isAuthenticated = await auth0Client.isAuthenticated();
+
+                if (isAuthenticated) {
+                    auth0User = await auth0Client.getUser();
+                    currentUser = auth0User.email || auth0User.name || auth0User.sub;
+                    await showMainApp();
+                } else {
+                    showAuth0LoginState();
+                }
+
+            } catch (error) {
+                console.error('Auth0 Initialization Error:', error);
+                showAuth0ErrorState(error.message);
+            }
+        }
+
+        /**
+         * Auth0 Login
+         */
+        async function auth0Login() {
+            try {
+                await auth0Client.loginWithRedirect();
+            } catch (error) {
+                console.error('Auth0 Login Error:', error);
+                showAuth0ErrorState('Anmeldung fehlgeschlagen: ' + error.message);
+            }
+        }
+
+        /**
+         * Auth0 Logout
+         */
+        async function auth0Logout() {
+            try {
+                await auth0Client.logout({
+                    logoutParams: {
+                        returnTo: window.location.origin + window.location.pathname
+                    }
+                });
+            } catch (error) {
+                console.error('Auth0 Logout Error:', error);
+                showToast('Abmeldung fehlgeschlagen', 'error');
+            }
+        }
+
+        /**
+         * Show Auth0 Loading State
+         */
+        function showAuth0LoadingState() {
+            auth0LoadingState.classList.remove('hidden');
+            auth0ErrorState.classList.add('hidden');
+            auth0LoginState.classList.add('hidden');
+        }
+
+        /**
+         * Show Auth0 Error State
+         */
+        function showAuth0ErrorState(message) {
+            auth0LoadingState.classList.add('hidden');
+            auth0ErrorState.classList.remove('hidden');
+            auth0LoginState.classList.add('hidden');
+            auth0ErrorMessage.textContent = message;
+        }
+
+        /**
+         * Show Auth0 Login State
+         */
+        function showAuth0LoginState() {
+            auth0LoadingState.classList.add('hidden');
+            auth0ErrorState.classList.add('hidden');
+            auth0LoginState.classList.remove('hidden');
+        }
+
+        /**
+         * Show Main App after successful authentication
+         */
+        async function showMainApp() {
+            // Update user display
+            const usernameDisplay = document.getElementById('current-username-display');
+            const emailDisplay = document.getElementById('current-email-display');
+            const userAvatar = document.getElementById('user-avatar');
+
+            if (auth0User) {
+                usernameDisplay.textContent = auth0User.name || auth0User.email || 'User';
+                
+                if (auth0User.email) {
+                    emailDisplay.textContent = auth0User.email;
+                    emailDisplay.classList.remove('hidden');
+                }
+
+                if (auth0User.picture) {
+                    userAvatar.src = auth0User.picture;
+                }
+            }
+
+            // Hide auth screen and show app
+            authScreen.classList.add('hidden');
+            appInterface.classList.remove('hidden');
+
+            // Load initial data
+            await loadFolders();
+            await loadEntries();
+        }
+
+        /**
+         * Get Auth0 Access Token for API calls
+         */
+        async function getAuth0Token(audience, scope) {
+            if (!auth0Client) return null;
+            try {
+                const token = await auth0Client.getTokenSilently({
+                    authorizationParams: {
+                        audience: audience,
+                        scope: scope || 'openid profile email'
+                    }
+                });
+                return token;
+            } catch (error) {
+                console.error('Error getting access token:', error);
+                return null;
+            }
+        }
+
+        // Initialize Auth0 on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            initAuth0();
+        });
 
         // ==========================================
         // API HELPER FUNCTION (Verbessert)
@@ -468,87 +663,18 @@
         }
 
         // ==========================================
-        // AUTH SYSTEM (AZURE CONNECTED)
+        // LEGACY AUTH SYSTEM (REPLACED BY AUTH0)
         // ==========================================
+        // The following functions are kept for compatibility but Auth0 is now the primary auth method
 
         function toggleAuth(mode) {
-            if (mode === 'register') {
-                document.getElementById('login-form').classList.add('hidden');
-                document.getElementById('register-form').classList.remove('hidden');
-            } else {
-                document.getElementById('login-form').classList.remove('hidden');
-                document.getElementById('register-form').classList.add('hidden');
-            }
+            // Legacy function - Auth0 handles authentication now
+            console.log('toggleAuth called but Auth0 is now handling authentication');
         }
 
-        // Login Handler
-        document.getElementById('login-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const user = document.getElementById('login-user').value;
-            const pass = document.getElementById('login-pass').value;
-
-            console.log("🔑 LOGIN gestartet:");
-            console.log("  👤 Username:", user);
-            console.log("  🔐 Password Länge:", pass.length);
-
-            // Sende Credentials an Azure Function "/auth" mit action "login"
-            const result = await apiRequest('auth', 'POST', {
-                action: 'login',
-                username: user,
-                password: pass
-            });
-
-            console.log("📋 Login Ergebnis:", result);
-
-            if (result && result.success) {
-                console.log("✅ Login erfolgreich!");
-                currentUser = user;
-                authScreen.classList.add('hidden');
-                appInterface.classList.remove('hidden');
-                document.getElementById('current-username-display').textContent = currentUser;
-                loadApp();
-            } else {
-                console.error("❌ Login fehlgeschlagen:", result ? result.message : "Keine Antwort");
-                showToast(result?.message || 'Anmeldung fehlgeschlagen', 'error');
-            }
-        });
-
-        // Register Handler
-        document.getElementById('register-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const user = document.getElementById('reg-user').value;
-            const pass = document.getElementById('reg-pass').value;
-
-            console.log("📝 REGISTRIERUNG gestartet:");
-            console.log("  👤 Username:", user);
-            console.log("  🔐 Password Länge:", pass.length);
-
-            const result = await apiRequest('auth', 'POST', {
-                action: 'register',
-                username: user,
-                password: pass
-            });
-
-            console.log("📋 Registrierung Ergebnis:", result);
-
-            if (result && result.success) {
-                console.log("✅ Registrierung erfolgreich!");
-                showToast('Konto erstellt! Bitte anmelden.');
-                toggleAuth('login');
-            } else {
-                console.error("❌ Registrierung fehlgeschlagen:", result ? result.message : "Keine Antwort");
-                showToast(result?.message || 'Registrierung fehlgeschlagen', 'error');
-            }
-        });
-
+        // Legacy logout function - now calls Auth0 logout
         function logout() {
-            currentUser = null;
-            currentFolder = 'Alle';
-            foldersData = [];
-            entriesData = [];
-            authScreen.classList.remove('hidden');
-            appInterface.classList.add('hidden');
-            document.getElementById('login-form').reset();
+            auth0Logout();
         }
 
         // ==========================================
@@ -556,6 +682,12 @@
         // ==========================================
 
         async function loadApp() {
+            // This is called by Auth0 after successful authentication
+            await loadFolders();
+            await loadEntries();
+        }
+
+        async function loadAppData() {
             // Hole alle Daten für den User auf einmal
             // Erwartet Antwort: { folders: [...], entries: [...] }
             const data = await apiRequest(`data?username=${encodeURIComponent(currentUser)}`, 'GET');

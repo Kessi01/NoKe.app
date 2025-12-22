@@ -1,0 +1,403 @@
+/**
+ * Auth0 Integration Styles
+ * Modern, beautiful styling for Auth0 authentication UI
+ * Designed to match the NoKe app's black and gold theme
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* Auth0 Container Wrapper */
+.auth0-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    width: 100%;
+    padding: 1rem;
+    background-color: #000000;
+}
+
+/* Loading State */
+.auth0-loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: #111111;
+    border-radius: 15px;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(196, 156, 72, 0.1);
+    padding: 3rem;
+    text-align: center;
+}
+
+.auth0-loading-spinner {
+    width: 50px;
+    height: 50px;
+    border: 3px solid #333;
+    border-top-color: #C49C48;
+    border-radius: 50%;
+    animation: auth0-spin 1s linear infinite;
+    margin-bottom: 1.5rem;
+}
+
+.auth0-loading-text {
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    font-size: 1.4rem;
+    font-weight: 500;
+    color: #a0aec0;
+    animation: auth0-pulse 1.5s infinite ease-in-out;
+}
+
+/* Error State */
+.auth0-error-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #c53030 0%, #9b2c2c 100%);
+    border-radius: 15px;
+    box-shadow: 0 15px 40px rgba(197, 48, 48, 0.3);
+    padding: 3rem;
+    text-align: center;
+    max-width: 450px;
+}
+
+.auth0-error-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.auth0-error-title {
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    font-size: 2rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 0.5rem;
+}
+
+.auth0-error-message {
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    font-size: 1.1rem;
+    color: rgba(255, 255, 255, 0.9);
+    margin-bottom: 0.5rem;
+}
+
+.auth0-error-details {
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    font-size: 0.95rem;
+    color: rgba(255, 255, 255, 0.7);
+    background: rgba(0, 0, 0, 0.2);
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    margin-top: 1rem;
+    max-width: 100%;
+    word-break: break-word;
+}
+
+/* Main Card Wrapper */
+.auth0-main-card {
+    background: linear-gradient(145deg, #111111 0%, #0a0a0a 100%);
+    border-radius: 20px;
+    box-shadow: 
+        0 25px 60px rgba(0, 0, 0, 0.7),
+        0 0 0 1px rgba(196, 156, 72, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 3rem;
+    max-width: 480px;
+    width: 90%;
+    animation: auth0-fadeInScale 0.6s ease-out forwards;
+}
+
+/* Auth0 Logo */
+.auth0-logo {
+    width: 140px;
+    margin-bottom: 0.5rem;
+    opacity: 0;
+    animation: auth0-slideInDown 0.8s ease-out forwards 0.2s;
+    filter: drop-shadow(0 4px 12px rgba(196, 156, 72, 0.2));
+}
+
+/* Main Title */
+.auth0-main-title {
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    font-size: 2.4rem;
+    font-weight: 700;
+    color: #f7fafc;
+    text-align: center;
+    margin-bottom: 0.5rem;
+    text-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    opacity: 0;
+    animation: auth0-fadeIn 0.8s ease-out forwards 0.4s;
+}
+
+/* Action Card (Login Section) */
+.auth0-action-card {
+    background-color: #1a1a1a;
+    border-radius: 15px;
+    box-shadow: 
+        inset 0 2px 5px rgba(0, 0, 0, 0.4),
+        0 5px 20px rgba(0, 0, 0, 0.3);
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    width: 100%;
+    opacity: 0;
+    animation: auth0-fadeIn 0.8s ease-out forwards 0.6s;
+}
+
+.auth0-action-text {
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    font-size: 1.15rem;
+    color: #a0aec0;
+    text-align: center;
+    line-height: 1.6;
+    font-weight: 400;
+}
+
+/* Buttons */
+.auth0-button {
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    padding: 1rem 2.5rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    outline: none;
+    position: relative;
+    overflow: hidden;
+}
+
+.auth0-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s ease;
+}
+
+.auth0-button:hover::before {
+    left: 100%;
+}
+
+.auth0-button:focus {
+    box-shadow: 0 0 0 4px rgba(196, 156, 72, 0.4);
+}
+
+.auth0-button.auth0-login {
+    background: linear-gradient(135deg, #C49C48 0%, #a37f36 100%);
+    color: #000000;
+}
+
+.auth0-button.auth0-login:hover {
+    background: linear-gradient(135deg, #d4ac58 0%, #C49C48 100%);
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 12px 30px rgba(196, 156, 72, 0.4);
+}
+
+.auth0-button.auth0-logout {
+    background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+    color: #e2e8f0;
+}
+
+.auth0-button.auth0-logout:hover {
+    background: linear-gradient(135deg, #5a6578 0%, #3d4758 100%);
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+}
+
+/* Logged In Section */
+.auth0-logged-in-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    width: 100%;
+}
+
+.auth0-success-message {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    font-size: 1.2rem;
+    color: #68d391;
+    font-weight: 600;
+    padding: 0.75rem 1.5rem;
+    background: rgba(104, 211, 145, 0.1);
+    border-radius: 10px;
+    border: 1px solid rgba(104, 211, 145, 0.2);
+    animation: auth0-fadeIn 0.6s ease-out forwards;
+}
+
+.auth0-profile-title {
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 600;
+    color: #C49C48;
+    margin-top: 0.5rem;
+}
+
+/* Profile Card */
+.auth0-profile-card {
+    background-color: #1a1a1a;
+    border-radius: 15px;
+    padding: 2rem;
+    width: 100%;
+    box-shadow: 
+        inset 0 2px 5px rgba(0, 0, 0, 0.3),
+        0 5px 20px rgba(0, 0, 0, 0.3);
+}
+
+.auth0-profile-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.25rem;
+}
+
+.auth0-profile-picture {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid #C49C48;
+    box-shadow: 0 8px 25px rgba(196, 156, 72, 0.3);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.auth0-profile-picture:hover {
+    transform: scale(1.05);
+    box-shadow: 0 12px 35px rgba(196, 156, 72, 0.4);
+}
+
+.auth0-profile-info {
+    text-align: center;
+}
+
+.auth0-profile-name {
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: #f7fafc;
+    margin-bottom: 0.35rem;
+}
+
+.auth0-profile-email {
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+    font-size: 1rem;
+    color: #a0aec0;
+}
+
+/* Divider */
+.auth0-divider {
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(196, 156, 72, 0.3), transparent);
+    margin: 0.5rem 0;
+}
+
+/* Animations */
+@keyframes auth0-spin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes auth0-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+@keyframes auth0-fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes auth0-fadeInScale {
+    from { 
+        opacity: 0; 
+        transform: scale(0.95); 
+    }
+    to { 
+        opacity: 1; 
+        transform: scale(1); 
+    }
+}
+
+@keyframes auth0-slideInDown {
+    from { 
+        opacity: 0; 
+        transform: translateY(-40px); 
+    }
+    to { 
+        opacity: 1; 
+        transform: translateY(0); 
+    }
+}
+
+@keyframes auth0-slideInUp {
+    from { 
+        opacity: 0; 
+        transform: translateY(30px); 
+    }
+    to { 
+        opacity: 1; 
+        transform: translateY(0); 
+    }
+}
+
+/* Responsive Design */
+@media (max-width: 480px) {
+    .auth0-main-card {
+        padding: 2rem 1.5rem;
+        margin: 1rem;
+        width: 95%;
+    }
+
+    .auth0-main-title {
+        font-size: 1.9rem;
+    }
+
+    .auth0-button {
+        padding: 0.9rem 2rem;
+        font-size: 1rem;
+        width: 100%;
+    }
+
+    .auth0-logo {
+        width: 110px;
+    }
+
+    .auth0-action-card {
+        padding: 1.5rem;
+    }
+
+    .auth0-profile-picture {
+        width: 85px;
+        height: 85px;
+    }
+
+    .auth0-profile-name {
+        font-size: 1.5rem;
+    }
+}
+
+/* Dark mode adjustments (for browsers that support it) */
+@media (prefers-color-scheme: dark) {
+    .auth0-container {
+        background-color: #000000;
+    }
+}

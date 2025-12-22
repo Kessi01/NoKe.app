@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NoKe - Anmeldung</title>
+    
+    <!-- Auth0 SPA JS SDK via CDN -->
+    <script src="https://cdn.auth0.com/js/auth0-spa-js/2.1/auth0-spa-js.production.js"></script>
+    
+    <!-- Auth0 Custom Styles -->
+    <link rel="stylesheet" href="auth0-style.css">
+    
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* Additional page-specific styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #000000;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #e5e5e5;
+        }
+
+        /* Background decoration */
+        .auth0-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: -1;
+        }
+
+        .auth0-background::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(ellipse at center, rgba(196, 156, 72, 0.03) 0%, transparent 50%);
+            animation: auth0-rotate 60s linear infinite;
+        }
+
+        @keyframes auth0-rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* NoKe branding adjustments */
+        .noke-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .noke-brand-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #C49C48 0%, #a37f36 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: #000;
+            box-shadow: 0 8px 20px rgba(196, 156, 72, 0.3);
+        }
+
+        .noke-brand-text {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #f7fafc;
+            letter-spacing: -0.02em;
+        }
+
+        .noke-brand-text span {
+            color: #C49C48;
+        }
+
+        /* Feature highlights */
+        .auth0-features {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin-top: 1rem;
+            width: 100%;
+        }
+
+        .auth0-feature-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.6rem 0;
+            color: #a0aec0;
+            font-size: 0.95rem;
+        }
+
+        .auth0-feature-item i {
+            color: #C49C48;
+            width: 20px;
+            text-align: center;
+        }
+
+        /* Footer link */
+        .auth0-footer {
+            margin-top: 1.5rem;
+            text-align: center;
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        .auth0-footer a {
+            color: #C49C48;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .auth0-footer a:hover {
+            color: #d4ac58;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Background decoration -->
+    <div class="auth0-background"></div>
+
+    <div class="auth0-container">
+        <!-- Loading State -->
+        <div id="auth0-loading" class="auth0-loading-state">
+            <div class="auth0-loading-spinner"></div>
+            <div class="auth0-loading-text">Wird geladen...</div>
+        </div>
+
+        <!-- Error State -->
+        <div id="auth0-error" class="auth0-error-state" style="display: none;">
+            <div class="auth0-error-icon">⚠️</div>
+            <div class="auth0-error-title">Fehler!</div>
+            <div class="auth0-error-message">Etwas ist schiefgelaufen</div>
+            <div id="auth0-error-details" class="auth0-error-details"></div>
+        </div>
+
+        <!-- Main Content -->
+        <div id="auth0-app" class="auth0-main-card" style="display: none;">
+            
+            <!-- NoKe Branding -->
+            <div class="noke-brand">
+                <div class="noke-brand-icon">
+                    <i class="fas fa-key"></i>
+                </div>
+                <div class="noke-brand-text">No<span>Ke</span></div>
+            </div>
+
+            <h1 class="auth0-main-title">Passwortmanager</h1>
+
+            <!-- Logged Out State -->
+            <div id="auth0-logged-out" class="auth0-action-card">
+                <p class="auth0-action-text">
+                    Melden Sie sich an, um sicher auf Ihre Passwörter zuzugreifen
+                </p>
+                
+                <div class="auth0-features">
+                    <div class="auth0-feature-item">
+                        <i class="fas fa-shield-halved"></i>
+                        <span>Ende-zu-Ende Verschlüsselung</span>
+                    </div>
+                    <div class="auth0-feature-item">
+                        <i class="fas fa-lock"></i>
+                        <span>Sichere Authentifizierung mit Auth0</span>
+                    </div>
+                    <div class="auth0-feature-item">
+                        <i class="fas fa-cloud"></i>
+                        <span>Synchronisierung über alle Geräte</span>
+                    </div>
+                </div>
+
+                <div class="auth0-divider"></div>
+
+                <button id="auth0-login-btn" class="auth0-button auth0-login">
+                    <i class="fas fa-sign-in-alt" style="margin-right: 0.5rem;"></i>
+                    Anmelden
+                </button>
+            </div>
+
+            <!-- Logged In State -->
+            <div id="auth0-logged-in" class="auth0-logged-in-section" style="display: none;">
+                <div class="auth0-success-message">
+                    <i class="fas fa-check-circle"></i>
+                    Erfolgreich angemeldet!
+                </div>
+
+                <h2 class="auth0-profile-title">Ihr Profil</h2>
+                
+                <div id="auth0-profile" class="auth0-profile-card">
+                    <!-- Profile content will be inserted by JavaScript -->
+                </div>
+
+                <div class="auth0-divider"></div>
+
+                <a href="index.html" class="auth0-button auth0-login" style="text-decoration: none; display: inline-flex; align-items: center;">
+                    <i class="fas fa-arrow-right" style="margin-right: 0.5rem;"></i>
+                    Zum Passwortmanager
+                </a>
+
+                <button id="auth0-logout-btn" class="auth0-button auth0-logout">
+                    <i class="fas fa-sign-out-alt" style="margin-right: 0.5rem;"></i>
+                    Abmelden
+                </button>
+            </div>
+
+            <!-- Footer -->
+            <div class="auth0-footer">
+                Gesichert durch <a href="https://auth0.com" target="_blank" rel="noopener">Auth0</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Auth0 Configuration (load before app.js) -->
+    <script src="auth0-config.js"></script>
+    
+    <!-- Auth0 Application Logic -->
+    <script src="auth0-app.js"></script>
+</body>
+
+</html>
