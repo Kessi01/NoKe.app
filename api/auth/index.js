@@ -252,6 +252,129 @@ module.exports = async function (context, req) {
 
             context.res = { body: { success: true, message: "2FA deaktiviert" } };
 
+        // GET-SETTINGS - Get user settings/profile
+        } else if (action === 'get-settings') {
+            if (!userDoc) {
+                context.res = { body: { success: false, message: "Benutzer nicht gefunden" } };
+                return;
+            }
+
+            context.res = {
+                body: {
+                    success: true,
+                    settings: {
+                        displayName: userDoc.displayName || userDoc.name || '',
+                        email: userDoc.email || userDoc.username,
+                        picture: userDoc.picture || null,
+                        theme: userDoc.theme || 'dark',
+                        language: userDoc.language || 'de',
+                        totpEnabled: userDoc.totpEnabled || false
+                    }
+                }
+            };
+
+        // SAVE-SETTINGS - Save user settings/profile
+        } else if (action === 'save-settings') {
+            if (!userDoc) {
+                context.res = { body: { success: false, message: "Benutzer nicht gefunden" } };
+                return;
+            }
+
+            const { displayName, theme, language } = req.body;
+
+            userDoc.displayName = displayName || userDoc.displayName;
+            userDoc.theme = theme || userDoc.theme;
+            userDoc.language = language || userDoc.language;
+            userDoc.updatedAt = new Date().toISOString();
+
+            await container.items.upsert(userDoc);
+
+            context.res = { body: { success: true, message: "Einstellungen gespeichert" } };
+
+        // LIST-TOKENS - List all API tokens for user
+        } else if (action === 'list-tokens') {
+            const tokenQuery = {
+                query: "SELECT c.id, c.name, c.createdAt, c.lastUsed, c.expiresAt, c.permissions, c.tokenPreview FROM c WHERE c.username = @username AND c.type = 'api_token'",
+                parameters: [{ name: "@username", value: username }]
+            };
+
+            const { resources: tokens } = await container.items.query(tokenQuery).fetchAll();
+
+            context.res = {
+                body: {
+                    success: true,
+                    tokens: tokens || []
+                }
+            };
+
+        // CREATE-TOKEN - Create a new API token
+        } else if (action === 'create-token') {
+            const { name, permissions, expiryDays } = req.body;
+
+            // Generate secure token
+            const rawToken = crypto.randomBytes(32).toString('hex');
+            const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+
+            // Calculate expiry
+            let expiresAt = null;
+            if (expiryDays && expiryDays > 0) {
+                expiresAt = new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1000).toISOString();
+            }
+
+            const tokenDoc = {
+                id: `token_${crypto.randomUUID()}`,
+                username: username,
+                name: name || 'API Token',
+                tokenHash: tokenHash,
+                tokenPreview: rawToken.substring(0, 8) + '...',
+                permissions: permissions || { read: true, write: false, delete: false },
+                type: 'api_token',
+                createdAt: new Date().toISOString(),
+                lastUsed: null,
+                expiresAt: expiresAt
+            };
+
+            await container.items.create(tokenDoc);
+
+            context.res = {
+                body: {
+                    success: true,
+                    message: "Token erstellt",
+                    token: rawToken,  // Only returned once!
+                    tokenId: tokenDoc.id,
+                    expiresAt: expiresAt
+                }
+            };
+
+        // REVOKE-TOKEN - Delete/revoke an API token
+        } else if (action === 'revoke-token') {
+            const { tokenId } = req.body;
+
+            if (!tokenId) {
+                context.res = { status: 400, body: { success: false, message: "Token ID fehlt" } };
+                return;
+            }
+
+            // Verify token belongs to user
+            const tokenQuery = {
+                query: "SELECT * FROM c WHERE c.id = @id AND c.username = @username AND c.type = 'api_token'",
+                parameters: [
+                    { name: "@id", value: tokenId },
+                    { name: "@username", value: username }
+                ]
+            };
+
+            const { resources: tokens } = await container.items.query(tokenQuery).fetchAll();
+
+            if (tokens.length === 0) {
+                context.res = { status: 404, body: { success: false, message: "Token nicht gefunden" } };
+                return;
+            }
+
+            await container.item(tokenId, username).delete();
+
+            context.res = { body: { success: true, message: "Token widerrufen" } };
+
         } else {
             context.res = { status: 400, body: { success: false, message: "Ungültige Action" } };
         }
