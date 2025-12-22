@@ -87,7 +87,33 @@ if (token && state === savedState) {
 
 ### Token-Verwendung
 
-Alle API-Anfragen müssen das Token im `Authorization`-Header senden:
+Alle API-Anfragen müssen das Token im Header senden. **Zwei Methoden werden unterstützt:**
+
+#### Methode 1: x-api-key (Empfohlen für Plugins)
+
+```
+x-api-key: <API_TOKEN>
+```
+
+**Beispiel mit curl:**
+```bash
+curl -X POST "https://blue-glacier-05eee0b03.3.azurestaticapps.net/api/validate-token" \
+  -H "x-api-key: abc123def456..." \
+  -H "Content-Type: application/json"
+```
+
+**Beispiel mit JavaScript:**
+```javascript
+fetch('https://blue-glacier-05eee0b03.3.azurestaticapps.net/api/plugin/entries', {
+    method: 'GET',
+    headers: {
+        'x-api-key': 'abc123def456...',
+        'Content-Type': 'application/json'
+    }
+})
+```
+
+#### Methode 2: Authorization Bearer
 
 ```
 Authorization: Bearer <API_TOKEN>
@@ -95,7 +121,7 @@ Authorization: Bearer <API_TOKEN>
 
 **Beispiel:**
 ```javascript
-fetch('https://noke-app.azurewebsites.net/api/plugin/entries', {
+fetch('https://blue-glacier-05eee0b03.3.azurestaticapps.net/api/plugin/entries', {
     method: 'GET',
     headers: {
         'Authorization': 'Bearer abc123def456...',
@@ -111,7 +137,7 @@ fetch('https://noke-app.azurewebsites.net/api/plugin/entries', {
 ### Basis-URL
 
 ```
-Produktion: https://noke-app.azurewebsites.net/api
+Produktion: https://blue-glacier-05eee0b03.3.azurestaticapps.net/api
 Entwicklung: http://localhost:7071/api
 ```
 
@@ -125,7 +151,7 @@ Entwicklung: http://localhost:7071/api
 
 **Headers:**
 ```
-Authorization: Bearer <TOKEN>
+x-api-key: <TOKEN>
 ```
 
 **Response (200 OK):**
@@ -355,8 +381,8 @@ noke-browser-plugin/
 ### API-Wrapper (lib/api.js)
 
 ```javascript
-const API_BASE_URL = 'https://noke-app.azurewebsites.net/api';
-const AUTH_URL = 'https://noke-app.azurewebsites.net';
+const API_BASE_URL = 'https://blue-glacier-05eee0b03.3.azurestaticapps.net/api';
+const AUTH_URL = 'https://blue-glacier-05eee0b03.3.azurestaticapps.net';
 
 class NoKeAPI {
     constructor() {
@@ -429,7 +455,7 @@ class NoKeAPI {
             // Listen for token response
             const messageHandler = async (event) => {
                 // Security check
-                if (!event.origin.includes('noke-app.azurewebsites.net')) return;
+                if (!event.origin.includes('blue-glacier-05eee0b03.3.azurestaticapps.net')) return;
                 
                 if (event.data.type === 'NOKE_TOKEN_RESPONSE') {
                     window.removeEventListener('message', messageHandler);
@@ -456,7 +482,7 @@ class NoKeAPI {
         });
     }
 
-    // API-Anfrage mit Authentifizierung
+    // API-Anfrage mit Authentifizierung (verwendet x-api-key Header)
     async request(endpoint, options = {}) {
         if (!this.token) {
             await this.loadToken();
@@ -469,7 +495,7 @@ class NoKeAPI {
         const response = await fetch(`${API_BASE_URL}${endpoint}`, {
             ...options,
             headers: {
-                'Authorization': `Bearer ${this.token}`,
+                'x-api-key': this.token,
                 'Content-Type': 'application/json',
                 ...options.headers
             }

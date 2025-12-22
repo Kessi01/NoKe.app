@@ -8,14 +8,35 @@ function hashToken(token) {
 }
 
 /**
- * Validate API token and return username if valid
+ * Extract API token from request headers
+ * Supports: x-api-key, Authorization: Bearer
  */
-async function validateToken(authHeader) {
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return { valid: false, error: "Authorization header fehlt oder ungültig" };
+function extractToken(req) {
+    // Method 1: x-api-key header (preferred for plugins)
+    const apiKey = req.headers['x-api-key'];
+    if (apiKey) {
+        return apiKey;
     }
 
-    const token = authHeader.substring(7);
+    // Method 2: Authorization Bearer header
+    const authHeader = req.headers['authorization'];
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        return authHeader.substring(7);
+    }
+
+    return null;
+}
+
+/**
+ * Validate API token and return username if valid
+ */
+async function validateToken(req) {
+    const token = extractToken(req);
+    
+    if (!token) {
+        return { valid: false, error: "API-Key fehlt. Verwende x-api-key Header." };
+    }
+
     const tokenHash = hashToken(token);
 
     const querySpec = {
@@ -39,11 +60,13 @@ async function validateToken(authHeader) {
     tokenDoc.lastUsed = new Date().toISOString();
     await container.items.upsert(tokenDoc);
 
-    return { valid: true, username: tokenDoc.username };
+    return { valid: true, username: tokenDoc.username, permissions: tokenDoc.permissions };
 }
 
 /**
  * Plugin API Endpoint
+ * 
+ * Authentication: x-api-key header or Authorization: Bearer
  * 
  * Actions:
  * - GET /api/plugin/entries - Get all password entries for autofill
@@ -55,7 +78,7 @@ module.exports = async function (context, req) {
         const action = context.bindingData.action || 'entries';
         
         // Validate token
-        const authResult = await validateToken(req.headers['authorization']);
+        const authResult = await validateToken(req);
         if (!authResult.valid) {
             context.res = {
                 status: 401,

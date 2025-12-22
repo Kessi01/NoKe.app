@@ -7,22 +7,45 @@ function hashToken(token) {
 }
 
 /**
+ * Extract API token from request headers
+ * Supports: x-api-key, Authorization: Bearer
+ */
+function extractToken(req) {
+    // Method 1: x-api-key header (preferred for plugins)
+    const apiKey = req.headers['x-api-key'];
+    if (apiKey) {
+        return apiKey;
+    }
+
+    // Method 2: Authorization Bearer header
+    const authHeader = req.headers['authorization'];
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        return authHeader.substring(7);
+    }
+
+    return null;
+}
+
+/**
  * Validate an API token and return user information if valid.
  * This endpoint is used by the browser plugin to authenticate API requests.
+ * 
+ * Supports both:
+ * - x-api-key: <token>
+ * - Authorization: Bearer <token>
  */
 module.exports = async function (context, req) {
     try {
-        const authHeader = req.headers['authorization'];
+        const token = extractToken(req);
         
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        if (!token) {
             context.res = {
                 status: 401,
-                body: { success: false, message: "Authorization header fehlt oder ungültig" }
+                body: { success: false, message: "API-Key fehlt. Verwende x-api-key Header." }
             };
             return;
         }
 
-        const token = authHeader.substring(7); // Remove 'Bearer ' prefix
         const tokenHash = hashToken(token);
 
         // Find the token in the database
