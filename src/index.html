@@ -720,8 +720,19 @@
         }
 
         async function loadEntries() {
-            // Data is already loaded by loadFolders, just re-render
-            renderPasswords();
+            // Reload all data from server to get fresh entries
+            const result = await apiRequest(`data?username=${encodeURIComponent(currentUser)}`, 'GET');
+            if (result) {
+                foldersData = result.folders || [];
+                entriesData = result.entries || [];
+                renderFolders();
+                renderPasswords();
+            }
+        }
+
+        // Alias for compatibility
+        async function loadData() {
+            await loadFolders();
         }
 
         // ==========================================
@@ -1023,17 +1034,21 @@
             document.getElementById('totp-setup-modal').classList.add('hidden');
         }
 
-        document.getElementById('totp-verify-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const code = document.getElementById('totp-verify-code').value;
-            const result = await apiRequest('auth', 'POST', { action: 'enable-totp', username: currentUser, code: code });
-            if (result && result.success) {
-                showToast('2FA erfolgreich aktiviert!');
-                closeTotpSetup();
-            } else {
-                showToast(result?.message || 'Code ungültig', 'error');
-            }
-        });
+        // TOTP form handler - only attach if element exists
+        const totpVerifyForm = document.getElementById('totp-verify-form');
+        if (totpVerifyForm) {
+            totpVerifyForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const code = document.getElementById('totp-verify-code').value;
+                const result = await apiRequest('auth', 'POST', { action: 'enable-totp', username: currentUser, code: code });
+                if (result && result.success) {
+                    showToast('2FA erfolgreich aktiviert!');
+                    closeTotpSetup();
+                } else {
+                    showToast(result?.message || 'Code ungültig', 'error');
+                }
+            });
+        }
     </script>
 </body>
 
