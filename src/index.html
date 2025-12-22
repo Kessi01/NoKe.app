@@ -878,13 +878,43 @@
         }
 
         function generatePassword() {
+            // Get length from slider
+            const lengthSlider = document.getElementById('pass-length');
+            const length = lengthSlider ? parseInt(lengthSlider.value) : 12;
+            
             const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-=[]{}|;:,.<>?';
             let password = '';
-            for (let i = 0; i < 16; i++) {
+            for (let i = 0; i < length; i++) {
                 password += chars.charAt(Math.floor(Math.random() * chars.length));
             }
+            
+            // Set password in both fields
             document.getElementById('entry-password').value = password;
+            const confirmField = document.getElementById('entry-password-confirm');
+            if (confirmField) {
+                confirmField.value = password;
+            }
+            
             updatePasswordStrength(password);
+        }
+
+        // Slider event handler for password length
+        function initPasswordSlider() {
+            const slider = document.getElementById('pass-length');
+            const sliderVal = document.getElementById('slider-val');
+            
+            if (slider && sliderVal) {
+                slider.addEventListener('input', function() {
+                    sliderVal.textContent = this.value;
+                });
+            }
+        }
+
+        // Initialize slider when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initPasswordSlider);
+        } else {
+            initPasswordSlider();
         }
 
         function createCardHTML(entry) {
