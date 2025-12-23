@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "NoKe Passwort-Manager",
-    "version": "1.0.0",
+    "version": "0.0.1",
     "description": "Autofill-Plugin für den NoKe Passwort-Manager",
     
     "permissions": [
