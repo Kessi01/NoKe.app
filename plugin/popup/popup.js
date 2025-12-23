@@ -21,20 +21,45 @@ const closeGeneratorBtn = document.getElementById('close-generator-btn');
 let allEntries = [];
 let authCheckInterval = null;
 
+// Listen for auth complete message from background
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    console.log('[NoKe Popup] Message received:', message);
+    if (message.action === 'authComplete') {
+        console.log('[NoKe Popup] Auth complete from background!');
+        showMainView(message.username);
+        loadEntries();
+        showToast('Erfolgreich verbunden!');
+    }
+});
+
 // Initialisierung
 document.addEventListener('DOMContentLoaded', async () => {
+    console.log('[NoKe Popup] Initializing...');
     await api.loadCredentials();
     
-    // Check current auth status
-    const validation = await api.validateAuth();
+    console.log('[NoKe Popup] Credentials loaded, authorized:', api.authorized);
     
-    if (validation.success) {
-        showMainView(validation.username);
-        await loadEntries();
-    } else if (validation.requireReauth) {
-        showLoginView();
-        loginError.style.color = '#ff4444';
-        loginError.textContent = 'Autorisierung abgelaufen. Bitte erneut verbinden.';
+    // Check current auth status
+    if (api.authorized && api.rollingKey) {
+        console.log('[NoKe Popup] Already authorized, validating...');
+        try {
+            const validation = await api.validateAuth();
+            console.log('[NoKe Popup] Validation result:', validation);
+            
+            if (validation.success) {
+                showMainView(validation.username || api.username);
+                await loadEntries();
+            } else if (validation.requireReauth) {
+                showLoginView();
+                loginError.style.color = '#ff4444';
+                loginError.textContent = 'Autorisierung abgelaufen. Bitte erneut verbinden.';
+            } else {
+                showLoginView();
+            }
+        } catch (error) {
+            console.error('[NoKe Popup] Validation error:', error);
+            showLoginView();
+        }
     } else {
         showLoginView();
     }
@@ -58,13 +83,30 @@ function showMainView(email) {
 function startAuthCheck() {
     if (authCheckInterval) return;
     
+    console.log('[NoKe] Starting auth check polling...');
+    
     authCheckInterval = setInterval(async () => {
-        const result = await api.checkAuthorization();
-        
-        if (result.success && result.authorized) {
-            showMainView(result.username);
-            await loadEntries();
-            showToast('Erfolgreich verbunden!');
+        console.log('[NoKe] Checking authorization status...');
+        try {
+            const result = await api.checkAuthorization();
+            console.log('[NoKe] Auth check result:', result);
+            
+            if (result.success && result.authorized) {
+                console.log('[NoKe] Authorization successful! Username:', result.username);
+                stopAuthCheck();  // Stop polling first!
+                showMainView(result.username);
+                await loadEntries();
+                showToast('Erfolgreich verbunden!');
+            } else if (result.requireReauth) {
+                console.log('[NoKe] Re-auth required');
+                stopAuthCheck();
+                loginError.style.color = '#ff4444';
+                loginError.textContent = 'Bitte erneut autorisieren.';
+                authorizeBtn.disabled = false;
+                authorizeBtn.textContent = '🔐 Mit NoKe verbinden';
+            }
+        } catch (error) {
+            console.error('[NoKe] Auth check error:', error);
         }
     }, 2000);  // Check every 2 seconds
     
@@ -95,19 +137,25 @@ authorizeBtn.addEventListener('click', async () => {
 
     try {
         const result = await api.authorize();
+        console.log('[NoKe Popup] Authorize result:', result);
         
         if (result.waitingForAuth) {
             loginError.style.color = '#C49C48';
             loginError.textContent = '⏳ Bitte autorisiere das Plugin in NoKe...';
             authorizeBtn.textContent = 'Warte auf Autorisierung...';
             
-            // Start checking for authorization
+            // Tell background service worker to start polling
+            // This survives popup close!
+            chrome.runtime.sendMessage({ action: 'startAuthPolling' });
+            
+            // Also start local polling as backup (works while popup is open)
             startAuthCheck();
         } else if (result.success) {
             showMainView(api.username);
             await loadEntries();
         }
     } catch (error) {
+        console.error('[NoKe Popup] Authorize error:', error);
         loginError.style.color = '#ff4444';
         loginError.textContent = error.message || 'Fehler beim Verbinden';
         authorizeBtn.disabled = false;

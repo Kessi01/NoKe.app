@@ -164,41 +164,66 @@ class NoKeAPI {
      */
     async checkAuthorization() {
         await this.loadCredentials();
+        
+        console.log('[NoKe API] checkAuthorization - pluginId:', this.pluginId ? 'exists' : 'missing');
+        console.log('[NoKe API] checkAuthorization - pluginSecret:', this.pluginSecret ? 'exists' : 'missing');
 
         if (!this.pluginId || !this.pluginSecret) {
             return { success: false, message: 'Plugin nicht registriert' };
         }
 
-        const response = await fetch(`${API_BASE_URL}/plugin-auth/check-auth`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                pluginId: this.pluginId,
-                pluginSecret: this.pluginSecret
-            })
-        });
+        try {
+            const response = await fetch(`${API_BASE_URL}/plugin-auth/check-auth`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    pluginId: this.pluginId,
+                    pluginSecret: this.pluginSecret
+                })
+            });
 
-        const data = await response.json();
+            const data = await response.json();
+            console.log('[NoKe API] check-auth response:', data);
 
-        if (data.success && data.authorized) {
-            // Authorization complete!
-            this.authorized = true;
-            this.username = data.username;
-            this.rollingKey = data.rollingKey;
-            await this.saveCredentials();
+            if (data.success && data.authorized) {
+                // Authorization complete!
+                console.log('[NoKe API] Authorization complete! Rolling key received:', data.rollingKey ? 'yes' : 'no');
+                this.authorized = true;
+                this.username = data.username;
+                this.rollingKey = data.rollingKey;
+                await this.saveCredentials();
+                console.log('[NoKe API] Credentials saved');
+
+                return {
+                    success: true,
+                    authorized: true,
+                    username: this.username
+                };
+            }
+
+            // Check for requireReauth flag
+            if (data.requireReauth) {
+                return {
+                    success: false,
+                    authorized: false,
+                    requireReauth: true,
+                    message: data.message
+                };
+            }
 
             return {
-                success: true,
-                authorized: true,
-                username: this.username
+                success: false,
+                authorized: false,
+                message: data.message || 'Warte auf Autorisierung...'
+            };
+        } catch (error) {
+            console.error('[NoKe API] check-auth error:', error);
+            return {
+                success: false,
+                authorized: false,
+                message: error.message
             };
         }
-
-        return {
-            success: false,
-            authorized: false,
-            message: data.message || 'Warte auf Autorisierung...'
-        };
     }
 
     // =====================================================
