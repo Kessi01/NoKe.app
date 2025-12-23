@@ -222,6 +222,8 @@ module.exports = async function (context, req) {
             pluginDoc.username = username;
             pluginDoc.authorized = true;
             pluginDoc.rollingKeyHash = hashToken(rollingKey);
+            // Store encrypted rolling key temporarily for plugin to retrieve via check-auth
+            pluginDoc.pendingRollingKey = encrypt(rollingKey);
             pluginDoc.rollingKeyCreatedAt = new Date().toISOString();
             pluginDoc.rollingKeyVersion = 1;
             pluginDoc.authorizedAt = new Date().toISOString();
@@ -233,11 +235,11 @@ module.exports = async function (context, req) {
 
             await container.items.upsert(pluginDoc);
 
+            // Don't return rolling key to frontend - plugin will get it via check-auth
             context.res = {
                 headers: corsHeaders(),
                 body: {
                     success: true,
-                    rollingKey: rollingKey,  // Initial rolling key
                     username: username,
                     message: 'Plugin erfolgreich autorisiert'
                 }
@@ -303,15 +305,29 @@ module.exports = async function (context, req) {
                 return;
             }
 
-            // Generate new rolling key (first exchange after authorization)
-            const newRollingKey = generateToken();
-            
-            pluginDoc.rollingKeyHash = hashToken(newRollingKey);
-            pluginDoc.rollingKeyCreatedAt = new Date().toISOString();
-            pluginDoc.rollingKeyVersion = (pluginDoc.rollingKeyVersion || 0) + 1;
-            pluginDoc.lastSeen = new Date().toISOString();
-
-            await container.items.upsert(pluginDoc);
+            // Get the pending rolling key (set during authorize)
+            let rollingKey = null;
+            if (pluginDoc.pendingRollingKey) {
+                // Decrypt the pending rolling key
+                rollingKey = decrypt(pluginDoc.pendingRollingKey);
+                // Clear pending key after retrieval (one-time use)
+                delete pluginDoc.pendingRollingKey;
+                pluginDoc.lastSeen = new Date().toISOString();
+                await container.items.upsert(pluginDoc);
+            } else {
+                // No pending key - plugin already retrieved it or key was rotated
+                // This shouldn't happen on first check after auth
+                context.res = {
+                    headers: corsHeaders(),
+                    body: { 
+                        success: false, 
+                        authorized: true,
+                        message: 'Rolling Key bereits abgerufen. Bitte erneut autorisieren.',
+                        requireReauth: true
+                    }
+                };
+                return;
+            }
 
             context.res = {
                 headers: corsHeaders(),
@@ -319,7 +335,7 @@ module.exports = async function (context, req) {
                     success: true,
                     authorized: true,
                     username: pluginDoc.username,
-                    rollingKey: newRollingKey
+                    rollingKey: rollingKey
                 }
             };
             return;
