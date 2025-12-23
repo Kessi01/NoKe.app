@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NoKe</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <!-- Login-Ansicht -->
+    <div id="login-view" class="view">
+        <div class="logo">
+            <img src="../icons/icon48.png" alt="NoKe">
+            <h1>NoKe</h1>
+        </div>
+        <p class="description">
+            Verbinde das Plugin mit deinem NoKe-Konto.
+        </p>
+        
+        <!-- Step 1: Open NoKe -->
+        <button id="authorize-btn" class="primary-btn">
+            🔐 NoKe öffnen & Token erstellen
+        </button>
+        
+        <div class="divider">
+            <span>Schritt 2</span>
+        </div>
+        
+        <!-- Step 2: Enter token -->
+        <details class="manual-token">
+            <summary>Token hier einfügen</summary>
+            <p class="token-hint">Kopiere den Token aus NoKe (Connections → Neues Token)</p>
+            <input type="password" id="token-input" placeholder="Token einfügen...">
+            <button id="login-btn" class="secondary-btn" style="width:100%">Verbinden</button>
+        </details>
+        
+        <p class="error" id="login-error"></p>
+    </div>
+
+    <!-- Haupt-Ansicht -->
+    <div id="main-view" class="view hidden">
+        <div class="header">
+            <img src="../icons/icon32.png" alt="NoKe">
+            <span id="user-email"></span>
+            <button id="logout-btn" class="icon-btn" title="Abmelden">🚪</button>
+        </div>
+        
+        <div class="search-box">
+            <input type="text" id="search-input" placeholder="Suchen...">
+        </div>
+
+        <div id="entries-list" class="entries-list">
+            <!-- Einträge werden hier dynamisch eingefügt -->
+        </div>
+
+        <div class="footer">
+            <button id="generate-btn" class="secondary-btn">🔐 Passwort generieren</button>
+        </div>
+    </div>
+
+    <!-- Passwort-Generator Modal -->
+    <div id="generator-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>Passwort generieren</h2>
+            <div class="generated-password">
+                <input type="text" id="generated-password" readonly>
+                <button id="copy-password-btn" title="Kopieren">📋</button>
+            </div>
+            <div class="generator-options">
+                <label>
+                    <span>Länge: <span id="length-value">16</span></span>
+                    <input type="range" id="password-length" min="8" max="64" value="16">
+                </label>
+                <label>
+                    <input type="checkbox" id="opt-uppercase" checked> Großbuchstaben
+                </label>
+                <label>
+                    <input type="checkbox" id="opt-lowercase" checked> Kleinbuchstaben
+                </label>
+                <label>
+                    <input type="checkbox" id="opt-numbers" checked> Zahlen
+                </label>
+                <label>
+                    <input type="checkbox" id="opt-symbols" checked> Sonderzeichen
+                </label>
+            </div>
+            <button id="regenerate-btn" class="secondary-btn">🔄 Neu generieren</button>
+            <button id="close-generator-btn" class="text-btn">Schließen</button>
+        </div>
+    </div>
+
+    <script src="../lib/api.js"></script>
+    <script src="popup.js"></script>
+</body>
+</html>

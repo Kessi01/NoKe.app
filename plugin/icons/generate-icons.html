@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Icon Generator</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #333; color: #fff; }
+        canvas { border: 1px solid #666; margin: 10px; background: transparent; }
+        .icons { display: flex; gap: 20px; flex-wrap: wrap; }
+        .icon-container { text-align: center; }
+        button { padding: 10px 20px; margin: 10px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>NoKe Icon Generator</h1>
+    <p>Rechtsklick auf jedes Canvas → "Bild speichern unter" → Als PNG speichern</p>
+    
+    <div class="icons">
+        <div class="icon-container">
+            <canvas id="icon16" width="16" height="16"></canvas>
+            <p>icon16.png</p>
+        </div>
+        <div class="icon-container">
+            <canvas id="icon32" width="32" height="32"></canvas>
+            <p>icon32.png</p>
+        </div>
+        <div class="icon-container">
+            <canvas id="icon48" width="48" height="48"></canvas>
+            <p>icon48.png</p>
+        </div>
+        <div class="icon-container">
+            <canvas id="icon128" width="128" height="128"></canvas>
+            <p>icon128.png</p>
+        </div>
+    </div>
+
+    <script>
+        function drawIcon(canvas) {
+            const ctx = canvas.getContext('2d');
+            const size = canvas.width;
+            const scale = size / 128;
+            
+            // Clear
+            ctx.clearRect(0, 0, size, size);
+            
+            // Background circle
+            ctx.beginPath();
+            ctx.arc(64 * scale, 64 * scale, 60 * scale, 0, Math.PI * 2);
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fill();
+            
+            // Gold circle
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, '#D4A84E');
+            gradient.addColorStop(1, '#C49C48');
+            
+            ctx.beginPath();
+            ctx.arc(64 * scale, 64 * scale, 56 * scale, 0, Math.PI * 2);
+            ctx.fillStyle = gradient;
+            ctx.fill();
+            
+            // Lock body
+            ctx.beginPath();
+            ctx.roundRect(40 * scale, 56 * scale, 48 * scale, 40 * scale, 6 * scale);
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fill();
+            
+            // Lock shackle
+            ctx.beginPath();
+            ctx.arc(64 * scale, 44 * scale, 16 * scale, Math.PI, 0, false);
+            ctx.lineWidth = 8 * scale;
+            ctx.strokeStyle = '#1a1a1a';
+            ctx.lineCap = 'round';
+            ctx.stroke();
+            
+            // Keyhole circle
+            ctx.beginPath();
+            ctx.arc(64 * scale, 72 * scale, 6 * scale, 0, Math.PI * 2);
+            ctx.fillStyle = gradient;
+            ctx.fill();
+            
+            // Keyhole line
+            ctx.beginPath();
+            ctx.roundRect(61 * scale, 72 * scale, 6 * scale, 12 * scale, 2 * scale);
+            ctx.fillStyle = gradient;
+            ctx.fill();
+        }
+        
+        // Draw all sizes
+        ['icon16', 'icon32', 'icon48', 'icon128'].forEach(id => {
+            drawIcon(document.getElementById(id));
+        });
+    </script>
+</body>
+</html>

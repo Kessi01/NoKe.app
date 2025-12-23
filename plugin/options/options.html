@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NoKe - Einstellungen</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a1a;
+            color: #fff;
+            min-height: 100vh;
+            padding: 40px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 40px;
+        }
+
+        .header img {
+            width: 48px;
+            height: 48px;
+        }
+
+        .header h1 {
+            color: #C49C48;
+            font-size: 28px;
+        }
+
+        .section {
+            background: #2a2a2a;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .section h2 {
+            color: #C49C48;
+            font-size: 18px;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #444;
+        }
+
+        .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #333;
+        }
+
+        .setting-item:last-child {
+            border-bottom: none;
+        }
+
+        .setting-label {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .setting-label span {
+            font-weight: 500;
+        }
+
+        .setting-label small {
+            color: #888;
+            font-size: 12px;
+        }
+
+        .toggle {
+            position: relative;
+            width: 48px;
+            height: 24px;
+        }
+
+        .toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #444;
+            transition: 0.3s;
+            border-radius: 24px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+
+        .toggle input:checked + .toggle-slider {
+            background-color: #C49C48;
+        }
+
+        .toggle input:checked + .toggle-slider:before {
+            transform: translateX(24px);
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: none;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #C49C48;
+            color: #000;
+        }
+
+        .btn-primary:hover {
+            background: #d4a84e;
+        }
+
+        .btn-danger {
+            background: #444;
+            color: #ff4444;
+            border: 1px solid #ff4444;
+        }
+
+        .btn-danger:hover {
+            background: #ff4444;
+            color: #fff;
+        }
+
+        .status {
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        .status.connected {
+            background: rgba(76, 175, 80, 0.2);
+            border: 1px solid #4CAF50;
+        }
+
+        .status.disconnected {
+            background: rgba(244, 67, 54, 0.2);
+            border: 1px solid #f44336;
+        }
+
+        .status-icon {
+            font-size: 20px;
+            margin-right: 8px;
+        }
+
+        .info-box {
+            background: #333;
+            padding: 16px;
+            border-radius: 8px;
+            margin-top: 16px;
+        }
+
+        .info-box p {
+            color: #888;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .version {
+            text-align: center;
+            color: #666;
+            font-size: 12px;
+            margin-top: 40px;
+        }
+
+        .actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="../icons/icon48.png" alt="NoKe">
+            <h1>NoKe Einstellungen</h1>
+        </div>
+
+        <!-- Verbindungsstatus -->
+        <div class="section">
+            <h2>Verbindung</h2>
+            <div id="status" class="status disconnected">
+                <span class="status-icon">🔴</span>
+                <span id="status-text">Nicht verbunden</span>
+            </div>
+            <div id="user-info" style="display: none;">
+                <p><strong>Benutzer:</strong> <span id="user-email"></span></p>
+                <p><strong>Token:</strong> <span id="token-name"></span></p>
+            </div>
+            <div class="actions">
+                <button id="connect-btn" class="btn btn-primary">Mit NoKe verbinden</button>
+                <button id="disconnect-btn" class="btn btn-danger" style="display: none;">Verbindung trennen</button>
+            </div>
+        </div>
+
+        <!-- Autofill-Einstellungen -->
+        <div class="section">
+            <h2>Autofill</h2>
+            <div class="setting-item">
+                <div class="setting-label">
+                    <span>Automatisches Ausfüllen</span>
+                    <small>Zeigt Vorschläge auf Login-Seiten an</small>
+                </div>
+                <label class="toggle">
+                    <input type="checkbox" id="auto-suggest" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="setting-item">
+                <div class="setting-label">
+                    <span>Benachrichtigung anzeigen</span>
+                    <small>Zeigt Bestätigung nach Autofill</small>
+                </div>
+                <label class="toggle">
+                    <input type="checkbox" id="show-notification" checked>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Sicherheit -->
+        <div class="section">
+            <h2>Sicherheit</h2>
+            <div class="setting-item">
+                <div class="setting-label">
+                    <span>Automatisch sperren</span>
+                    <small>Nach 15 Minuten Inaktivität</small>
+                </div>
+                <label class="toggle">
+                    <input type="checkbox" id="auto-lock">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="info-box">
+                <p>🔒 Dein API-Token wird sicher im Browser-Speicher aufbewahrt und nur für die Kommunikation mit der NoKe-API verwendet.</p>
+            </div>
+        </div>
+
+        <!-- Über -->
+        <div class="section">
+            <h2>Über NoKe</h2>
+            <p style="color: #888; margin-bottom: 16px;">NoKe ist ein sicherer Passwort-Manager für Teams und Einzelpersonen.</p>
+            <div class="actions">
+                <button onclick="window.open('https://blue-glacier-05eee0b03.3.azurestaticapps.net', '_blank')" class="btn btn-primary">
+                    NoKe Web-App öffnen
+                </button>
+            </div>
+        </div>
+
+        <p class="version">NoKe Browser-Plugin v<span id="version">1.0.0</span></p>
+    </div>
+
+    <script src="options.js"></script>
+</body>
+</html>
