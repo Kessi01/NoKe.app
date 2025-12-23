@@ -21,10 +21,18 @@ module.exports = async function (context, req) {
 
         // FIX 2: Partition Key (username) muss der Owner sein.
         // Das Frontend sendet "user" als Owner und "username" als Login-Username.
-        // Wir speichern den Login-Username als "loginUsername" bevor wir username überschreiben.
-        if (entry.username && entry.user) {
+        // Wir speichern den Login-Username als "loginUsername" IMMER bevor wir username überschreiben.
+        
+        // Speichere Login-Username (das was der User im Formular eingibt)
+        // Prüfe ob username existiert UND nicht bereits der Owner ist
+        if (entry.username && entry.user && entry.username !== entry.user) {
             entry.loginUsername = entry.username;  // Login-Username des Eintrags
+        } else if (entry.username && !entry.user) {
+            // Fallback: wenn nur username gesendet wird, ist es der loginUsername
+            entry.loginUsername = entry.username;
         }
+        
+        // Setze Owner als Partition Key
         if (entry.user) {
             entry.username = entry.user;  // Owner (Partition Key)
             delete entry.user; // Cleanup

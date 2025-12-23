@@ -17,20 +17,24 @@
             Verbinde das Plugin mit deinem NoKe-Konto.
         </p>
         
-        <!-- Step 1: Open NoKe -->
+        <!-- Primary: Auto Authorization -->
         <button id="authorize-btn" class="primary-btn">
-            🔐 NoKe öffnen & Token erstellen
+            🔐 Mit NoKe verbinden
         </button>
         
+        <p class="auth-hint">
+            <i>Öffnet NoKe zur sicheren Autorisierung</i>
+        </p>
+        
         <div class="divider">
-            <span>Schritt 2</span>
+            <span>oder</span>
         </div>
         
-        <!-- Step 2: Enter token -->
+        <!-- Fallback: Manual token entry -->
         <details class="manual-token">
-            <summary>Token hier einfügen</summary>
-            <p class="token-hint">Kopiere den Token aus NoKe (Connections → Neues Token)</p>
-            <input type="password" id="token-input" placeholder="Token einfügen...">
+            <summary>Token manuell eingeben</summary>
+            <p class="token-hint">Falls die automatische Verbindung nicht klappt:</p>
+            <input type="password" id="token-input" placeholder="Token aus NoKe einfügen...">
             <button id="login-btn" class="secondary-btn" style="width:100%">Verbinden</button>
         </details>
         

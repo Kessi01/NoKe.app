@@ -139,6 +139,15 @@ input[type="password"]:focus {
     padding: 0 12px;
 }
 
+/* Auth Hint */
+.auth-hint {
+    text-align: center;
+    font-size: 11px;
+    color: #666;
+    margin-top: 8px;
+    margin-bottom: 0;
+}
+
 /* Manual Token */
 .manual-token {
     margin-top: 8px;

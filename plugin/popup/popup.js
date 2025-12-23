@@ -19,19 +19,22 @@ const regenerateBtn = document.getElementById('regenerate-btn');
 const closeGeneratorBtn = document.getElementById('close-generator-btn');
 
 let allEntries = [];
+let authCheckInterval = null;
 
 // Initialisierung
 document.addEventListener('DOMContentLoaded', async () => {
-    await api.loadToken();
+    await api.loadCredentials();
     
-    if (api.token) {
-        const validation = await api.validateToken();
-        if (validation.success) {
-            showMainView(validation.username);
-            await loadEntries();
-        } else {
-            showLoginView();
-        }
+    // Check current auth status
+    const validation = await api.validateAuth();
+    
+    if (validation.success) {
+        showMainView(validation.username);
+        await loadEntries();
+    } else if (validation.requireReauth) {
+        showLoginView();
+        loginError.style.color = '#ff4444';
+        loginError.textContent = 'Autorisierung abgelaufen. Bitte erneut verbinden.';
     } else {
         showLoginView();
     }
@@ -41,15 +44,50 @@ document.addEventListener('DOMContentLoaded', async () => {
 function showLoginView() {
     loginView.classList.remove('hidden');
     mainView.classList.add('hidden');
+    stopAuthCheck();
 }
 
 function showMainView(email) {
     loginView.classList.add('hidden');
     mainView.classList.remove('hidden');
-    userEmail.textContent = email;
+    userEmail.textContent = email || 'Verbunden';
+    stopAuthCheck();
 }
 
-// Authorization - Opens NoKe and shows manual token input
+// Start periodic auth check after initiating authorization
+function startAuthCheck() {
+    if (authCheckInterval) return;
+    
+    authCheckInterval = setInterval(async () => {
+        const result = await api.checkAuthorization();
+        
+        if (result.success && result.authorized) {
+            showMainView(result.username);
+            await loadEntries();
+            showToast('Erfolgreich verbunden!');
+        }
+    }, 2000);  // Check every 2 seconds
+    
+    // Stop after 5 minutes
+    setTimeout(() => {
+        if (authCheckInterval) {
+            stopAuthCheck();
+            loginError.style.color = '#ff4444';
+            loginError.textContent = 'Autorisierung abgelaufen. Bitte erneut versuchen.';
+            authorizeBtn.disabled = false;
+            authorizeBtn.textContent = '🔐 Mit NoKe verbinden';
+        }
+    }, 5 * 60 * 1000);
+}
+
+function stopAuthCheck() {
+    if (authCheckInterval) {
+        clearInterval(authCheckInterval);
+        authCheckInterval = null;
+    }
+}
+
+// Authorization - Opens NoKe for automatic authorization
 authorizeBtn.addEventListener('click', async () => {
     authorizeBtn.disabled = true;
     authorizeBtn.textContent = 'Öffne NoKe...';
@@ -58,28 +96,26 @@ authorizeBtn.addEventListener('click', async () => {
     try {
         const result = await api.authorize();
         
-        if (result.needsManualToken) {
-            // Open the manual token section automatically
-            const manualTokenDetails = document.querySelector('.manual-token');
-            manualTokenDetails.open = true;
-            tokenInput.focus();
+        if (result.waitingForAuth) {
             loginError.style.color = '#C49C48';
-            loginError.textContent = '👆 Kopiere den Token aus NoKe und füge ihn oben ein.';
+            loginError.textContent = '⏳ Bitte autorisiere das Plugin in NoKe...';
+            authorizeBtn.textContent = 'Warte auf Autorisierung...';
+            
+            // Start checking for authorization
+            startAuthCheck();
         } else if (result.success) {
-            const validation = await api.validateToken();
-            showMainView(validation.username);
+            showMainView(api.username);
             await loadEntries();
         }
     } catch (error) {
         loginError.style.color = '#ff4444';
-        loginError.textContent = error.message || 'Fehler beim Öffnen';
+        loginError.textContent = error.message || 'Fehler beim Verbinden';
+        authorizeBtn.disabled = false;
+        authorizeBtn.textContent = '🔐 Mit NoKe verbinden';
     }
-
-    authorizeBtn.disabled = false;
-    authorizeBtn.textContent = '🔐 Mit NoKe verbinden';
 });
 
-// Manual Login (Fallback)
+// Manual Login with legacy token (Fallback)
 loginBtn.addEventListener('click', async () => {
     const token = tokenInput.value.trim();
     
@@ -92,15 +128,16 @@ loginBtn.addEventListener('click', async () => {
     loginBtn.textContent = 'Verbinde...';
     loginError.textContent = '';
 
-    await api.saveToken(token);
-    const validation = await api.validateToken();
+    await api.saveLegacyToken(token);
+    const validation = await api.validateAuth();
 
     if (validation.success) {
         showMainView(validation.username);
         await loadEntries();
     } else {
+        loginError.style.color = '#ff4444';
         loginError.textContent = validation.message || 'Token ungültig';
-        await api.clearToken();
+        await api.clearCredentials();
     }
 
     loginBtn.disabled = false;
@@ -109,11 +146,12 @@ loginBtn.addEventListener('click', async () => {
 
 // Logout
 logoutBtn.addEventListener('click', async () => {
-    await api.clearToken();
+    await api.clearCredentials();
     tokenInput.value = '';
     allEntries = [];
     entriesList.innerHTML = '';
     showLoginView();
+    loginError.textContent = '';
 });
 
 // Einträge laden
@@ -159,11 +197,15 @@ function renderEntries(entries) {
     entries.forEach(entry => {
         const item = document.createElement('div');
         item.className = 'entry-item';
+        // Use new field names: name (entry name), loginUsername (login username)
+        const entryName = entry.name || entry.title || 'Unbenannt';
+        const entryUsername = entry.loginUsername || entry.username || '';
+        
         item.innerHTML = `
             <div class="entry-icon">🔐</div>
             <div class="entry-info">
-                <div class="entry-title">${escapeHtml(entry.title)}</div>
-                <div class="entry-username">${escapeHtml(entry.username)}</div>
+                <div class="entry-title">${escapeHtml(entryName)}</div>
+                <div class="entry-username">${escapeHtml(entryUsername)}</div>
             </div>
             <div class="entry-actions">
                 <button class="icon-btn copy-user" title="Benutzername kopieren">👤</button>
@@ -175,7 +217,7 @@ function renderEntries(entries) {
         // Event Listeners
         item.querySelector('.copy-user').addEventListener('click', (e) => {
             e.stopPropagation();
-            copyToClipboard(entry.username);
+            copyToClipboard(entryUsername);
             showToast('Benutzername kopiert');
         });
 
@@ -197,11 +239,12 @@ function renderEntries(entries) {
 // Suche
 searchInput.addEventListener('input', (e) => {
     const query = e.target.value.toLowerCase();
-    const filtered = allEntries.filter(entry =>
-        entry.title.toLowerCase().includes(query) ||
-        entry.username.toLowerCase().includes(query) ||
-        (entry.url && entry.url.toLowerCase().includes(query))
-    );
+    const filtered = allEntries.filter(entry => {
+        const name = (entry.name || entry.title || '').toLowerCase();
+        const username = (entry.loginUsername || entry.username || '').toLowerCase();
+        const url = (entry.url || '').toLowerCase();
+        return name.includes(query) || username.includes(query) || url.includes(query);
+    });
     renderEntries(filtered);
 });
 
@@ -211,7 +254,7 @@ async function autofill(entry) {
     
     chrome.tabs.sendMessage(tabs[0].id, {
         action: 'autofill',
-        username: entry.username,
+        username: entry.loginUsername || entry.username || '',
         password: entry.password
     });
 
