@@ -2,6 +2,7 @@
 const loginView = document.getElementById('login-view');
 const mainView = document.getElementById('main-view');
 const authorizeBtn = document.getElementById('authorize-btn');
+const resetBtn = document.getElementById('reset-btn');
 const tokenInput = document.getElementById('token-input');
 const loginBtn = document.getElementById('login-btn');
 const loginError = document.getElementById('login-error');
@@ -161,6 +162,32 @@ authorizeBtn.addEventListener('click', async () => {
         authorizeBtn.disabled = false;
         authorizeBtn.textContent = '🔐 Mit NoKe verbinden';
     }
+});
+
+// Reset Plugin - clears all local data and re-registers
+resetBtn.addEventListener('click', async () => {
+    if (!confirm('Plugin zurücksetzen? Alle lokalen Daten werden gelöscht und das Plugin muss neu autorisiert werden.')) {
+        return;
+    }
+    
+    console.log('[NoKe Popup] Resetting plugin...');
+    loginError.style.color = '#C49C48';
+    loginError.textContent = '🔄 Plugin wird zurückgesetzt...';
+    
+    // Stop any running auth polling
+    stopAuthCheck();
+    chrome.runtime.sendMessage({ action: 'stopAuthPolling' });
+    
+    // Clear all stored credentials (including pluginId)
+    await api.clearCredentials();
+    
+    // Re-initialize API (will generate new plugin ID on next authorize)
+    await api.loadCredentials();
+    
+    loginError.style.color = '#4caf50';
+    loginError.textContent = '✓ Plugin zurückgesetzt. Klicke auf "Mit NoKe verbinden".';
+    authorizeBtn.disabled = false;
+    authorizeBtn.textContent = '🔐 Mit NoKe verbinden';
 });
 
 // Manual Login with legacy token (Fallback)

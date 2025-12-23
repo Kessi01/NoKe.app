@@ -118,6 +118,19 @@ input[type="password"]:focus {
     color: #fff;
 }
 
+.link-btn {
+    background: none;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 4px;
+}
+
+.link-btn:hover {
+    color: #C49C48;
+}
+
 /* Divider */
 .divider {
     display: flex;

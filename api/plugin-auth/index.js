@@ -67,12 +67,14 @@ module.exports = async function (context, req) {
             const pluginSecret = generateToken();
             
             // Store plugin registration (without user association yet)
+            // Use "_plugins" as partition key for unassociated plugins
             const pluginDoc = {
                 id: pluginId,
                 type: 'plugin_instance',
                 pluginIdHash: hashToken(pluginId),
                 pluginSecretHash: hashToken(pluginSecret),
-                username: null,  // Not yet associated with user
+                username: '_plugins',  // Partition key for unassociated plugins
+                ownerUsername: null,   // Will be set when authorized
                 authorized: false,
                 createdAt: new Date().toISOString(),
                 lastSeen: new Date().toISOString()
@@ -108,9 +110,9 @@ module.exports = async function (context, req) {
                 return;
             }
 
-            // Verify plugin registration
+            // Verify plugin registration - search in _plugins partition first
             const querySpec = {
-                query: "SELECT * FROM c WHERE c.id = @id AND c.type = 'plugin_instance'",
+                query: "SELECT * FROM c WHERE c.id = @id AND c.type = 'plugin_instance' AND c.username = '_plugins'",
                 parameters: [{ name: "@id", value: pluginId }]
             };
 
@@ -167,6 +169,8 @@ module.exports = async function (context, req) {
         if (action === 'authorize') {
             const { pluginId, authToken, username } = req.body || {};
 
+            context.log(`Authorize request: pluginId=${pluginId}, username=${username}`);
+
             if (!pluginId || !authToken || !username) {
                 context.res = {
                     status: 400,
@@ -176,15 +180,40 @@ module.exports = async function (context, req) {
                 return;
             }
 
-            // Find plugin
-            const querySpec = {
-                query: "SELECT * FROM c WHERE c.id = @id AND c.type = 'plugin_instance'",
+            // Find plugin (check both in _plugins partition and user partition)
+            let pluginDoc = null;
+            let oldPartitionKey = null;
+            
+            // First check _plugins partition (unassociated plugins)
+            const querySpec1 = {
+                query: "SELECT * FROM c WHERE c.id = @id AND c.type = 'plugin_instance' AND c.username = '_plugins'",
                 parameters: [{ name: "@id", value: pluginId }]
             };
-
-            const { resources } = await container.items.query(querySpec).fetchAll();
+            let { resources } = await container.items.query(querySpec1).fetchAll();
             
-            if (resources.length === 0) {
+            if (resources.length > 0) {
+                pluginDoc = resources[0];
+                oldPartitionKey = '_plugins';
+                context.log('Found plugin in _plugins partition');
+            } else {
+                // Check if already associated with this user
+                const querySpec2 = {
+                    query: "SELECT * FROM c WHERE c.id = @id AND c.type = 'plugin_instance' AND c.username = @username",
+                    parameters: [
+                        { name: "@id", value: pluginId },
+                        { name: "@username", value: username }
+                    ]
+                };
+                const result2 = await container.items.query(querySpec2).fetchAll();
+                if (result2.resources.length > 0) {
+                    pluginDoc = result2.resources[0];
+                    oldPartitionKey = username;
+                    context.log('Found plugin already associated with user');
+                }
+            }
+            
+            if (!pluginDoc) {
+                context.log('Plugin not found in any partition');
                 context.res = {
                     status: 404,
                     headers: corsHeaders(),
@@ -193,10 +222,9 @@ module.exports = async function (context, req) {
                 return;
             }
 
-            const pluginDoc = resources[0];
-
             // Verify auth token
             if (hashToken(authToken) !== pluginDoc.authRequestToken) {
+                context.log('Auth token mismatch');
                 context.res = {
                     status: 401,
                     headers: corsHeaders(),
@@ -207,6 +235,7 @@ module.exports = async function (context, req) {
 
             // Check if auth request expired
             if (new Date(pluginDoc.authRequestExpiry) < new Date()) {
+                context.log('Auth token expired');
                 context.res = {
                     status: 401,
                     headers: corsHeaders(),
@@ -218,24 +247,40 @@ module.exports = async function (context, req) {
             // Generate initial rolling key
             const rollingKey = generateToken();
 
-            // Update plugin with user association and rolling key
-            pluginDoc.username = username;
-            pluginDoc.authorized = true;
-            pluginDoc.rollingKeyHash = hashToken(rollingKey);
-            // Store encrypted rolling key temporarily for plugin to retrieve via check-auth
-            pluginDoc.pendingRollingKey = encrypt(rollingKey);
-            pluginDoc.rollingKeyCreatedAt = new Date().toISOString();
-            pluginDoc.rollingKeyVersion = 1;
-            pluginDoc.authorizedAt = new Date().toISOString();
-            pluginDoc.lastSeen = new Date().toISOString();
+            // If partition key is changing, we need to delete old and create new
+            if (oldPartitionKey !== username) {
+                context.log(`Partition key changing from ${oldPartitionKey} to ${username}`);
+                
+                // Delete old document
+                try {
+                    await container.item(pluginDoc.id, oldPartitionKey).delete();
+                    context.log('Deleted old document');
+                } catch (delError) {
+                    context.log('Error deleting old document:', delError.message);
+                }
+            }
+
+            // Create/Update plugin document with user association
+            const newPluginDoc = {
+                ...pluginDoc,
+                username: username,  // New partition key
+                ownerUsername: username,
+                authorized: true,
+                rollingKeyHash: hashToken(rollingKey),
+                pendingRollingKey: encrypt(rollingKey),
+                rollingKeyCreatedAt: new Date().toISOString(),
+                rollingKeyVersion: 1,
+                authorizedAt: new Date().toISOString(),
+                lastSeen: new Date().toISOString()
+            };
             
             // Clear auth request data
-            delete pluginDoc.authRequestToken;
-            delete pluginDoc.authRequestExpiry;
+            delete newPluginDoc.authRequestToken;
+            delete newPluginDoc.authRequestExpiry;
 
-            await container.items.upsert(pluginDoc);
+            await container.items.upsert(newPluginDoc);
+            context.log('Plugin authorized and saved');
 
-            // Don't return rolling key to frontend - plugin will get it via check-auth
             context.res = {
                 headers: corsHeaders(),
                 body: {
@@ -252,7 +297,9 @@ module.exports = async function (context, req) {
         // Called by plugin after user approves in web app
         // =====================================================
         if (action === 'check-auth') {
-            const { pluginId, pluginSecret, authToken } = req.body || {};
+            const { pluginId, pluginSecret } = req.body || {};
+
+            context.log(`check-auth: pluginId=${pluginId}`);
 
             if (!pluginId || !pluginSecret) {
                 context.res = {
@@ -263,15 +310,33 @@ module.exports = async function (context, req) {
                 return;
             }
 
-            // Find plugin
-            const querySpec = {
-                query: "SELECT * FROM c WHERE c.id = @id AND c.type = 'plugin_instance'",
+            // Find plugin - first check _plugins partition (not yet authorized)
+            let pluginDoc = null;
+            
+            const querySpec1 = {
+                query: "SELECT * FROM c WHERE c.id = @id AND c.type = 'plugin_instance' AND c.username = '_plugins'",
                 parameters: [{ name: "@id", value: pluginId }]
             };
-
-            const { resources } = await container.items.query(querySpec).fetchAll();
+            let { resources } = await container.items.query(querySpec1).fetchAll();
             
-            if (resources.length === 0) {
+            if (resources.length > 0) {
+                pluginDoc = resources[0];
+                context.log('Found in _plugins partition, not yet authorized');
+            } else {
+                // Check all user partitions (cross-partition query)
+                const querySpec2 = {
+                    query: "SELECT * FROM c WHERE c.id = @id AND c.type = 'plugin_instance' AND c.username != '_plugins'",
+                    parameters: [{ name: "@id", value: pluginId }]
+                };
+                const result2 = await container.items.query(querySpec2).fetchAll();
+                if (result2.resources.length > 0) {
+                    pluginDoc = result2.resources[0];
+                    context.log('Found in user partition:', pluginDoc.username);
+                }
+            }
+            
+            if (!pluginDoc) {
+                context.log('Plugin not found');
                 context.res = {
                     status: 404,
                     headers: corsHeaders(),
@@ -280,10 +345,9 @@ module.exports = async function (context, req) {
                 return;
             }
 
-            const pluginDoc = resources[0];
-
             // Verify secret
             if (hashToken(pluginSecret) !== pluginDoc.pluginSecretHash) {
+                context.log('Secret mismatch');
                 context.res = {
                     status: 401,
                     headers: corsHeaders(),
@@ -292,8 +356,9 @@ module.exports = async function (context, req) {
                 return;
             }
 
-            // Check if authorized
-            if (!pluginDoc.authorized || !pluginDoc.username) {
+            // Check if authorized (ownerUsername is set when authorized)
+            if (!pluginDoc.authorized || !pluginDoc.ownerUsername) {
+                context.log('Not yet authorized');
                 context.res = {
                     headers: corsHeaders(),
                     body: { 
@@ -305,18 +370,22 @@ module.exports = async function (context, req) {
                 return;
             }
 
+            context.log('Plugin is authorized, checking for pending rolling key');
+
             // Get the pending rolling key (set during authorize)
             let rollingKey = null;
             if (pluginDoc.pendingRollingKey) {
                 // Decrypt the pending rolling key
                 rollingKey = decrypt(pluginDoc.pendingRollingKey);
+                context.log('Decrypted pending rolling key');
+                
                 // Clear pending key after retrieval (one-time use)
                 delete pluginDoc.pendingRollingKey;
                 pluginDoc.lastSeen = new Date().toISOString();
                 await container.items.upsert(pluginDoc);
+                context.log('Cleared pending key from DB');
             } else {
-                // No pending key - plugin already retrieved it or key was rotated
-                // This shouldn't happen on first check after auth
+                context.log('No pending rolling key found');
                 context.res = {
                     headers: corsHeaders(),
                     body: { 
@@ -334,7 +403,7 @@ module.exports = async function (context, req) {
                 body: {
                     success: true,
                     authorized: true,
-                    username: pluginDoc.username,
+                    username: pluginDoc.ownerUsername,
                     rollingKey: rollingKey
                 }
             };
