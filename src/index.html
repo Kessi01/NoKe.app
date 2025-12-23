@@ -891,6 +891,10 @@
                 return;
             }
 
+            // Close the confirmation modal first
+            const modal = document.getElementById('plugin-confirm-modal');
+            if (modal) modal.remove();
+
             try {
                 const result = await apiRequest('plugin-auth/authorize', 'POST', {
                     pluginId: pluginAuthState.pluginId,
@@ -901,15 +905,17 @@
                 if (result && result.success) {
                     showToast('Plugin erfolgreich autorisiert!');
                     clearPluginAuthState();
-                    // Redirect to dashboard
-                    showPage('dashboard');
+                    // Show passwords page if elements exist
+                    if (document.getElementById('page-passwords')) {
+                        showPage('passwords');
+                    }
                 } else {
                     showToast(result?.message || 'Autorisierung fehlgeschlagen', 'error');
                     clearPluginAuthState();
                 }
             } catch (error) {
                 console.error('Plugin authorization error:', error);
-                showToast('Fehler bei der Autorisierung', 'error');
+                showToast('Fehler bei der Autorisierung: ' + error.message, 'error');
                 clearPluginAuthState();
             }
         }
@@ -1126,19 +1132,43 @@
         let currentPage = 'passwords';
 
         function showPage(pageName) {
+            // Validate page name
+            const validPages = ['passwords', 'settings', 'connections'];
+            if (!validPages.includes(pageName)) {
+                console.warn('Invalid page name:', pageName);
+                pageName = 'passwords';
+            }
+
+            // Check if elements exist before manipulating
+            const pagePasswords = document.getElementById('page-passwords');
+            const pageSettings = document.getElementById('page-settings');
+            const pageConnections = document.getElementById('page-connections');
+            
+            if (!pagePasswords || !pageSettings || !pageConnections) {
+                console.warn('Page elements not found, skipping showPage');
+                return;
+            }
+
             // Hide all pages
-            document.getElementById('page-passwords').classList.add('hidden');
-            document.getElementById('page-settings').classList.add('hidden');
-            document.getElementById('page-connections').classList.add('hidden');
+            pagePasswords.classList.add('hidden');
+            pageSettings.classList.add('hidden');
+            pageConnections.classList.add('hidden');
 
             // Remove active from all nav items
-            document.getElementById('nav-passwords').classList.remove('active');
-            document.getElementById('nav-settings').classList.remove('active');
-            document.getElementById('nav-connections').classList.remove('active');
+            const navPasswords = document.getElementById('nav-passwords');
+            const navSettings = document.getElementById('nav-settings');
+            const navConnections = document.getElementById('nav-connections');
+            
+            if (navPasswords) navPasswords.classList.remove('active');
+            if (navSettings) navSettings.classList.remove('active');
+            if (navConnections) navConnections.classList.remove('active');
 
             // Show selected page
-            document.getElementById(`page-${pageName}`).classList.remove('hidden');
-            document.getElementById(`nav-${pageName}`).classList.add('active');
+            const targetPage = document.getElementById(`page-${pageName}`);
+            const targetNav = document.getElementById(`nav-${pageName}`);
+            
+            if (targetPage) targetPage.classList.remove('hidden');
+            if (targetNav) targetNav.classList.add('active');
 
             currentPage = pageName;
 
